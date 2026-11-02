@@ -8,6 +8,8 @@
  *   Receipt.buildPdf(items) one PDF from [{jpeg: Blob} | {pdf: Uint8Array}],
  *                           as base64 for the script.
  *   Receipt.warm()          starts loading the edge finder early.
+ *   Receipt.pageImages(b64) each page of a PDF as a JPEG data URL, for
+ *                           printing (the office page's cover sheet).
  *
  * Finding the receipt's edges uses OpenCV (about 10 MB, downloaded the first
  * time a photo is added and cached by the browser after that). Everything
@@ -17,6 +19,9 @@
 const Receipt = (() => {
   const OPENCV_URL = 'https://cdn.jsdelivr.net/npm/@techstark/opencv-js@4.10.0-release.1/dist/opencv.js';
   const PDFLIB_URL = 'https://cdn.jsdelivr.net/npm/pdf-lib@1.17.1/dist/pdf-lib.min.js';
+  const PDFJS_URL = 'https://cdn.jsdelivr.net/npm/pdfjs-dist@3.11.174/build/pdf.min.js';
+  const PDFJS_WORKER_URL = 'https://cdn.jsdelivr.net/npm/pdfjs-dist@3.11.174/build/pdf.worker.min.js';
+  const PRINT_WIDTH = 1800;  // pixels across a printed receipt page: about 220 dpi on 8.5 x 11
   const MAX_SOURCE = 2600;   // longest side of a photo kept for straightening
   const MAX_OUT = 2200;      // longest side of a finished page
   const MAX_OUT_PIXELS = 3.2e6;
@@ -60,6 +65,12 @@ const Receipt = (() => {
       cvReady.catch(() => { cvReady = null; });
     }
     return cvReady;
+  }
+
+  async function pdfjs() {
+    await loadScript(PDFJS_URL);
+    window.pdfjsLib.GlobalWorkerOptions.workerSrc = PDFJS_WORKER_URL;
+    return window.pdfjsLib;
   }
 
   async function pdfLib() {
@@ -637,7 +648,31 @@ const Receipt = (() => {
     return doc.saveAsBase64();
   }
 
+  /** A base64 PDF -> one JPEG data URL per page, drawn on white. */
+  async function pageImages(base64) {
+    const lib = await pdfjs();
+    const raw = atob(base64);
+    const bytes = new Uint8Array(raw.length);
+    for (let i = 0; i < raw.length; i++) bytes[i] = raw.charCodeAt(i);
+    const doc = await lib.getDocument({ data: bytes }).promise;
+    const out = [];
+    for (let n = 1; n <= doc.numPages; n++) {
+      const page = await doc.getPage(n);
+      const width = page.getViewport({ scale: 1 }).width;
+      const view = page.getViewport({ scale: Math.min(4, PRINT_WIDTH / width) });
+      const c = canvas(view.width, view.height);
+      const ctx = c.getContext('2d');
+      ctx.fillStyle = '#ffffff';
+      ctx.fillRect(0, 0, c.width, c.height);
+      await page.render({ canvasContext: ctx, viewport: view }).promise;
+      out.push(c.toDataURL('image/jpeg', 0.88));
+    }
+    doc.destroy();
+    return out;
+  }
+
   return {
+    pageImages: pageImages,
     scan: scan,
     pdfInfo: pdfInfo,
     buildPdf: buildPdf,

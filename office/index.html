@@ -705,10 +705,21 @@
 
   // ---- Print --------------------------------------------------------------------------
 
-  /** A cover sheet laid out like the paper Purchase Request Form, from the saved request. */
-  function printCover() {
+  /**
+   * A cover sheet laid out like the paper Purchase Request Form, from the saved
+   * request, followed by each page of its receipt.
+   */
+  async function printCover() {
     const r = current;
     if (dirty()) toast('Printing the saved version. Save your changes first to include them.');
+    // Open the window while the click still counts: one opened after waiting for
+    // the receipt would be blocked as a pop-up.
+    const w = window.open('', '_blank');
+    if (!w) return toast('The browser blocked the print window. Allow pop-ups for this page and try again.');
+    w.document.write('<!DOCTYPE html><title>' + esc(r.id) + '</title><p style="font:16px system-ui,sans-serif;margin:40px">' +
+      'Getting the receipt for ' + esc(r.id) + '&hellip;</p>');
+    const receipt = await receiptPages(r);
+    if (w.closed) return;
     const box = (on) => '<span class="box">' + (on ? '&#10003;' : '') + '</span>';
     const lines = r.lines.length > 1
       ? '<table class="lines">' + r.lines.map((l) => '<tr><td>' + esc(accountLabel(l)) + '</td><td class="r">' + dollars(l.amount) + '</td></tr>').join('') + '</table>' : '';
@@ -721,6 +732,9 @@
       '.types{display:flex;gap:28px;margin:12px 0}.sec{font-weight:bold;margin-top:18px}.desc{border-bottom:1px solid #444;min-height:84px;white-space:pre-wrap;padding:2px 6px}' +
       '.pair{display:flex;gap:40px;margin:22px 0}.pair div{flex:1;text-align:center}.pair .val{display:block;text-align:center;font-size:16px}' +
       '.small{font-size:12px;color:#555}table.lines{width:100%;border-collapse:collapse;margin-top:8px}table.lines td{border-bottom:1px solid #bbb;padding:3px 6px}.r{text-align:right}' +
+      '.note{margin-top:18px;padding:8px 10px;border:1px solid #bbb;font-size:13px}' +
+      '.rp{break-before:page;page-break-before:always;text-align:center;margin-top:24px}.rp img{max-width:100%;max-height:9.9in}' +
+      '@page{margin:0.5in}@media print{body{margin:0}.rp{margin-top:0}}' +
       '</style></head><body>' +
       '<div class="logo"><img src="' + esc(logo) + '" alt=""></div><h1>Purchase Request Form &middot; ' + esc(r.id) + '</h1>' +
       '<div class="row"><span class="lab">Today\u2019s date:</span><span class="val">' + esc(shortDate(r.submitted)) + '</span>' +
@@ -738,11 +752,30 @@
       '<div class="row" style="margin-top:22px"><span class="lab">Date issued:</span><span class="val">' + esc(shortDate(r.issued)) + '</span>' +
       '<span class="lab">Check #:</span><span class="val">' + esc(r.checkNo) + '</span></div>' +
       '<p class="small">' + esc(ORG_NAMES[r.org]) + ' &middot; Status: ' + esc(r.status) + (r.notes ? ' &middot; Notes: ' + esc(r.notes) : '') + '</p>' +
+      receipt +
       '<script>window.onload=function(){setTimeout(function(){window.print()},300)}<\/script></body></html>';
-    const w = window.open('', '_blank');
-    if (!w) return toast('The browser blocked the print window. Allow pop-ups for this page and try again.');
+    w.document.open();
     w.document.write(html);
     w.document.close();
+  }
+
+  /** The receipt's pages as images for the print window, or a note saying why there are none. */
+  async function receiptPages(r) {
+    const note = (text) => '<p class="note">' + esc(text) + '</p>';
+    if (!String(r.files || '').trim()) return note(r.receipt === 'To follow' ? 'The invoice is to follow.' : 'No receipt is attached.');
+    try {
+      const res = await api({ action: 'officeReceipt', id: r.id });
+      const pages = [];
+      for (const f of res.files) {
+        if (/pdf/i.test(f.type)) pages.push.apply(pages, await Receipt.pageImages(f.data));
+        else if (/^image\//i.test(f.type)) pages.push('data:' + f.type + ';base64,' + f.data);
+      }
+      if (!pages.length) return note('The receipt file is empty.');
+      return pages.map((src, i) => '<div class="rp"><img src="' + src + '" alt="Receipt page ' + (i + 1) + '"></div>').join('');
+    } catch (err) {
+      const why = err.message === 'silent' ? 'the office code needs to be entered again.' : err.message;
+      return note('The receipt couldn\u2019t be added (' + why + '). Print it from Drive instead.');
+    }
   }
 
   // ---- CSV ----------------------------------------------------------------------------
