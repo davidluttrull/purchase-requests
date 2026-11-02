@@ -849,7 +849,7 @@
       editCards.map((c, i) => '<tr class="' + (c.active ? '' : 'off') + '">' +
         '<td class="chk"><input type="checkbox" data-c="' + i + '" data-k="active"' + (c.active ? ' checked' : '') + ' aria-label="Active"></td>' +
         '<td class="num"><select data-c="' + i + '" data-k="org" aria-label="Organization">' + Object.keys(ORG_NAMES).map((k) => '<option' + (c.org === k ? ' selected' : '') + '>' + k + '</option>').join('') + '</select></td>' +
-        '<td><input type="text" data-c="' + i + '" data-k="name" value="' + esc(c.name) + '" placeholder="First and last name" aria-label="Name"></td>' +
+        '<td><input type="text" data-c="' + i + '" data-k="name" value="' + esc(c.name) + '" placeholder="First and Last Name" aria-label="Name"></td>' +
         '<td><button type="button" class="linkbtn" data-rmcard="' + i + '">Remove</button></td></tr>').join('') +
       (editCards.length ? '' : '<tr><td colspan="4" class="empty">No cardholders yet. Staff type the name on the card.</td></tr>') + '</tbody>';
     $('#saveCards').disabled = !settingsDirty.cards;
