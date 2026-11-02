@@ -1,0 +1,1233 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Purchase Request</title>
+<meta name="theme-color" content="#2B3440">
+<meta name="apple-mobile-web-app-title" content="Purchases">
+<meta name="robots" content="noindex">
+<link rel="apple-touch-icon" href="apple-touch-icon.png">
+<link rel="icon" type="image/png" href="icon-192.png">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Barlow:wght@400;500;600;700&family=Barlow+Condensed:wght@600;700&family=Crimson+Pro:wght@600;700&family=Libre+Franklin:wght@400;500;600;700&family=Poppins:wght@400;500;600;700&display=swap" rel="stylesheet">
+<!--
+  Staff page for purchase requests. The look follows the organization picked:
+  the Grace Baptist Church tools for GBC, the ICA Crest style for ICA
+  (tokens copied from ICA Design/ica-tokens.css), and Fire Rescue House red
+  and charcoal for FRH. Before one is picked it uses a plain business office
+  look. Each look is a set of the variables below.
+-->
+<style>
+  /* Business office (before an organization is picked) */
+  :root {
+    --font-body: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+    --font-display: var(--font-body);
+    --bg: #F4F5F7; --card: #FFFFFF; --ink: #1C232B; --muted: #5B6470; --line: #E1E4E8; --line-strong: #CBD0D6;
+    --input: #FFFFFF; --step-bg: #EEF0F3; --step-line: #CBD0D6; --step-ink: #1C232B; --on-bg: #2B3440; --on-ink: #FFFFFF;
+    --heading: #2B3440; --rule: #8A94A3; --band-bg: #2B3440; --band-ink: #FFFFFF; --band-sub: #C9CFD8; --band-rule: #8A94A3;
+    --btn-bg: #2563A8; --btn-ink: #FFFFFF; --focus: #2563A8; --danger: #B3261E; --danger-ink: #FFFFFF; --ok: #2F6B4F; --ok-ink: #FFFFFF;
+    --warn-bg: #FDF0D5; --warn-ink: #7A4E00;
+    --shadow: 0 1px 2px rgba(28, 35, 43, .06);
+    --r-card: 8px; --r-ctl: 6px;
+    --h2-font: var(--font-body); --h2-size: 13px; --h2-weight: 700; --h2-track: .1em; --h2-rule-w: 0; --h2-rule-h: 0;
+    --title-font: var(--font-body); --title-weight: 600; --title-case: none;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      color-scheme: dark;
+      --bg: #11151A; --card: #1A2027; --ink: #E7EAEE; --muted: #A0A8B3; --line: #2A323C; --line-strong: #39434F;
+      --input: #141A20; --step-bg: #232B35; --step-line: #39434F; --step-ink: #E7EAEE; --on-bg: #E7EAEE; --on-ink: #11151A;
+      --heading: #C9CFD8; --btn-bg: #3B7DD8; --focus: #6AA5F0; --danger: #F2B8B5; --danger-ink: #2A0E0C; --ok: #7CC4A0; --ok-ink: #0E141E;
+      --warn-bg: #3A2F16; --warn-ink: #F0C66B; --shadow: none;
+    }
+  }
+
+  /* GBC: the Grace Baptist Church tools (Poppins, sage green, rounded) */
+  body[data-org="GBC"] {
+    --font-body: "Poppins", system-ui, -apple-system, sans-serif; --font-display: var(--font-body);
+    --bg: #F3F8EF; --card: #FFFFFF; --ink: #1E2A16; --muted: #5B6A50; --line: #DCE7D3; --line-strong: #C6DBB6;
+    --input: #FFFFFF; --step-bg: #EFF6EA; --step-line: #C6DBB6; --step-ink: #233617; --on-bg: #233617; --on-ink: #FFFFFF;
+    --heading: #4E7A35; --rule: #7BAE58; --band-bg: #233617; --band-sub: #CFE3C0; --band-rule: #233617;
+    --btn-bg: #7BAE58; --btn-ink: #10160C; --focus: #7BAE58; --danger: #B3261E; --danger-ink: #FFFFFF; --ok: #4E7A35; --ok-ink: #FFFFFF;
+    --shadow: 0 1px 2px rgba(35, 54, 23, .06), 0 2px 8px rgba(35, 54, 23, .06);
+    --r-card: 16px; --r-ctl: 12px;
+    --h2-size: 15px; --h2-weight: 600; --h2-track: .06em; --h2-rule-w: 0;
+    --title-weight: 600;
+  }
+  @media (prefers-color-scheme: dark) {
+    body[data-org="GBC"] {
+      --bg: #10160C; --card: #1A2414; --ink: #E8F0E1; --muted: #A3B396; --line: #2D3B24; --line-strong: #3A4D2E;
+      --input: #141C10; --step-bg: #243319; --step-line: #3A4D2E; --step-ink: #E8F0E1; --on-bg: #7BAE58; --on-ink: #10160C;
+      --heading: #7BAE58; --danger: #F2B8B5; --danger-ink: #10160C; --ok: #7BAE58; --ok-ink: #10160C; --shadow: none;
+    }
+  }
+
+  /* ICA: Crest (BEGIN/END is ica-tokens.css, as variables on the body) */
+  body[data-org="ICA"] {
+    /* BEGIN ica-tokens.css */
+    --font-display: "Crimson Pro", Georgia, "Times New Roman", serif;
+    --font-body: "Libre Franklin", "Helvetica Neue", Arial, sans-serif;
+    --bg: #F5F6F8; --card: #FFFFFF; --ink: #172233; --muted: #5B6577; --line: #E3E6EB; --line-strong: #CDD3DC;
+    --input: #FFFFFF; --step-bg: #EEF0F4; --step-line: #CDD3DC; --step-ink: #172233; --filled: #F7F8FA;
+    --on-bg: #172233; --on-ink: #FFFFFF; --heading: #96282D; --rule: #B8913A; --band-bg: #172233; --band-ink: #FFFFFF;
+    --band-sub: #C9CED6; --btn-bg: #96282D; --btn-ink: #FFFFFF; --focus: #96282D; --danger: #B3261E; --danger-ink: #FFFFFF;
+    --ok: #2F6B4F; --ok-ink: #FFFFFF; --shadow: 0 1px 2px rgba(23, 34, 51, .05);
+    /* END ica-tokens.css */
+    --band-rule: #B8913A;
+    --r-card: 6px; --r-ctl: 4px;
+    --h2-size: 12.5px; --h2-weight: 700; --h2-track: .12em; --h2-rule-w: 16px; --h2-rule-h: 2px;
+    --title-font: var(--font-display); --title-weight: 600;
+  }
+  @media (prefers-color-scheme: dark) {
+    body[data-org="ICA"] {
+      --bg: #0E141E; --card: #172131; --ink: #E6EAF0; --muted: #9BA6B6; --line: #26313F; --line-strong: #34404F;
+      --input: #121A27; --step-bg: #1F2A3B; --step-line: #34404F; --step-ink: #E6EAF0; --filled: #1B2535;
+      --on-bg: #C9A24D; --on-ink: #172233; --heading: #C9A24D; --rule: #C9A24D; --btn-bg: #A8343A; --btn-ink: #FFFFFF;
+      --focus: #C9A24D; --danger: #F2B8B5; --danger-ink: #2A0E0C; --ok: #7CC4A0; --ok-ink: #0E141E; --shadow: none;
+      --band-rule: #C9A24D;
+    }
+  }
+
+  /* FRH: Fire Rescue House red and charcoal, Barlow */
+  body[data-org="FRH"] {
+    --font-body: "Barlow", "Helvetica Neue", Arial, sans-serif; --font-display: "Barlow Condensed", "Arial Narrow", sans-serif;
+    --bg: #F4F4F3; --card: #FFFFFF; --ink: #1D2124; --muted: #5E6368; --line: #E2E3E4; --line-strong: #CBCDCF;
+    --input: #FFFFFF; --step-bg: #EFEFEE; --step-line: #CBCDCF; --step-ink: #1D2124; --on-bg: #1F2326; --on-ink: #FFFFFF;
+    --heading: #B81D24; --rule: #D8232A; --band-bg: #1F2326; --band-sub: #C5C8CB; --band-rule: #D8232A;
+    --btn-bg: #D8232A; --btn-ink: #FFFFFF; --focus: #D8232A; --danger: #B3261E; --danger-ink: #FFFFFF; --ok: #2F6B4F; --ok-ink: #FFFFFF;
+    --shadow: 0 1px 2px rgba(29, 33, 36, .06);
+    --r-card: 6px; --r-ctl: 4px;
+    --h2-font: var(--font-display); --h2-size: 15px; --h2-weight: 700; --h2-track: .08em; --h2-rule-w: 4px; --h2-rule-h: 16px;
+    --title-font: var(--font-display); --title-weight: 700; --title-case: uppercase;
+  }
+  @media (prefers-color-scheme: dark) {
+    body[data-org="FRH"] {
+      --bg: #121416; --card: #1C1F22; --ink: #ECEDEE; --muted: #A6ABB0; --line: #2C3135; --line-strong: #3A4045;
+      --input: #16191C; --step-bg: #262A2E; --step-line: #3A4045; --step-ink: #ECEDEE; --on-bg: #D8232A; --on-ink: #FFFFFF;
+      --heading: #FF8A8E; --focus: #FF8A8E; --danger: #F2B8B5; --danger-ink: #2A0E0C; --ok: #7CC4A0; --ok-ink: #0E141E; --shadow: none;
+    }
+  }
+
+  * { box-sizing: border-box; }
+  html { -webkit-text-size-adjust: 100%; }
+  body {
+    margin: 0;
+    background: var(--bg);
+    color: var(--ink);
+    font: 16px/1.4 var(--font-body);
+    -webkit-tap-highlight-color: transparent;
+  }
+  button, input, textarea, select { font: inherit; color: inherit; }
+  button { cursor: pointer; }
+  [hidden] { display: none !important; }
+
+  /* Header band */
+  .top {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    min-height: 74px;
+    padding: calc(14px + env(safe-area-inset-top)) max(18px, env(safe-area-inset-right)) 14px max(18px, env(safe-area-inset-left));
+    background: var(--band-bg);
+    color: var(--band-ink);
+    border-bottom: 3px solid var(--band-rule);
+  }
+  .top img { height: 42px; width: auto; display: block; flex: none; }
+  .wordmark { display: grid; gap: 1px; min-width: 0; }
+  .wordmark b { font-family: var(--title-font); font-weight: var(--title-weight); text-transform: var(--title-case); font-size: 19px; line-height: 1.1; letter-spacing: .01em; }
+  .wordmark span { font-size: 12.5px; color: var(--band-sub); letter-spacing: .1em; text-transform: uppercase; }
+  .top.center { flex-direction: column; justify-content: center; gap: 4px; text-align: center; }
+  .top.center img { height: 46px; }
+  .top.center .wordmark b { display: none; }
+  .top.center .wordmark span { letter-spacing: .04em; text-transform: none; font-size: 14px; }
+
+  main {
+    max-width: 560px;
+    margin: 0 auto;
+    padding: 12px max(12px, env(safe-area-inset-right)) 130px max(12px, env(safe-area-inset-left));
+    display: grid;
+    gap: 12px;
+  }
+  #rest { display: grid; gap: 12px; }
+  .card {
+    background: var(--card);
+    border: 1px solid var(--line);
+    border-radius: var(--r-card);
+    padding: 14px 16px 16px;
+    box-shadow: var(--shadow);
+  }
+  h2 {
+    margin: 0;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-family: var(--h2-font);
+    font-size: var(--h2-size);
+    font-weight: var(--h2-weight);
+    letter-spacing: var(--h2-track);
+    text-transform: uppercase;
+    color: var(--heading);
+  }
+  h2::before { content: ""; width: var(--h2-rule-w); height: var(--h2-rule-h); background: var(--rule); flex: none; }
+  body:not([data-org="ICA"]):not([data-org="FRH"]) h2::before { display: none; }
+  .hint { font-size: 13px; color: var(--muted); margin: 6px 0 0; }
+
+  .field { display: block; margin-top: 12px; }
+  .field > span, .field > .label { display: flex; align-items: center; gap: 8px; font-size: 14px; color: var(--muted); margin-bottom: 4px; }
+  .field input, .field textarea, .field select, .money {
+    width: 100%;
+    min-height: 46px;
+    padding: 10px 12px;
+    border: 1px solid var(--line-strong);
+    border-radius: var(--r-ctl);
+    background: var(--input);
+    font-size: 16px;
+  }
+  .field textarea { min-height: 84px; resize: vertical; }
+  .field select { -webkit-appearance: none; appearance: none; background-image: linear-gradient(45deg, transparent 50%, var(--muted) 50%), linear-gradient(135deg, var(--muted) 50%, transparent 50%); background-position: calc(100% - 20px) 50%, calc(100% - 14px) 50%; background-size: 6px 6px; background-repeat: no-repeat; padding-right: 36px; }
+  input[type="date"] { -webkit-appearance: none; appearance: none; }
+  input:focus, textarea:focus, select:focus, button:focus-visible, .money:focus-within { outline: 2px solid var(--focus); outline-offset: 1px; }
+  .money { display: flex; align-items: center; gap: 4px; padding: 0 12px; }
+  .money:focus-within input { outline: none; }
+  .money span { color: var(--muted); }
+  .money input { border: 0; padding: 0; min-height: 44px; flex: 1; min-width: 0; background: transparent; font-variant-numeric: tabular-nums; }
+  .money.big input { font-size: 22px; font-weight: 600; }
+
+  /* Organization tiles: logos on white in both modes */
+  .orgs { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; margin-top: 12px; }
+  .org {
+    position: relative;
+    display: grid;
+    align-content: center;
+    justify-items: center;
+    gap: 6px;
+    min-height: 92px;
+    padding: 10px 6px;
+    background: #FFFFFF;
+    color: #3A424C;
+    border: 2px solid #D7DBE0;
+    border-radius: var(--r-ctl);
+    font-size: 12px;
+    font-weight: 600;
+    line-height: 1.15;
+    text-align: center;
+  }
+  .org img { max-width: 100%; height: 44px; object-fit: contain; }
+  .org[aria-checked="true"] { border-color: var(--on-bg); box-shadow: 0 0 0 2px var(--on-bg); }
+  .org[aria-checked="true"]::after {
+    content: "";
+    position: absolute;
+    top: 6px; right: 6px;
+    width: 18px; height: 18px;
+    border-radius: 50%;
+    background: var(--on-bg) url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 18 18'%3E%3Cpath d='M5 9.5l2.5 2.5L13 6.5' fill='none' stroke='white' stroke-width='2.2'/%3E%3C/svg%3E") center / 18px no-repeat;
+  }
+  .orgs.picked .org { min-height: 0; padding: 8px 4px; gap: 4px; }
+  .orgs.picked .org img { height: 28px; }
+
+  /* Chips: single choice */
+  .chips { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; margin-top: 12px; }
+  .chips.two { grid-template-columns: 1fr 1fr; }
+  .chip {
+    min-height: 48px;
+    padding: 6px 4px;
+    border: 1px solid var(--step-line);
+    background: var(--step-bg);
+    color: var(--step-ink);
+    border-radius: var(--r-ctl);
+    font-weight: 500;
+    line-height: 1.15;
+  }
+  .chip[aria-checked="true"] { background: var(--on-bg); border-color: var(--on-bg); color: var(--on-ink); font-weight: 600; }
+
+  /* Accounts */
+  .line { display: flex; gap: 8px; align-items: stretch; margin-top: 10px; }
+  .acct {
+    flex: 1;
+    min-width: 0;
+    min-height: 54px;
+    display: grid;
+    align-content: center;
+    gap: 1px;
+    padding: 8px 36px 8px 12px;
+    text-align: left;
+    border: 1px solid var(--line-strong);
+    border-radius: var(--r-ctl);
+    background: var(--input);
+    position: relative;
+  }
+  .acct::after { content: ""; position: absolute; right: 16px; top: 50%; width: 8px; height: 8px; margin-top: -6px;
+    border-right: 2px solid var(--muted); border-bottom: 2px solid var(--muted); transform: rotate(45deg); }
+  .acct .a-name { font-weight: 500; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .acct .a-group { font-size: 13px; color: var(--muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .acct.empty .a-name { color: var(--muted); font-weight: 400; }
+  .line .money { width: 120px; flex: none; min-height: 54px; }
+  .line.split { flex-wrap: wrap; padding-top: 10px; border-top: 1px solid var(--line); }
+  .line.split:first-child { border-top: 0; padding-top: 0; }
+  .line.split .acct { flex: 1 1 100%; }
+  .line.split .money { flex: 1; width: auto; min-height: 48px; }
+  .line.split .money input { min-height: 46px; }
+  .line .money input { min-height: 52px; }
+  .rm { flex: none; width: 44px; border: 1px solid var(--line-strong); border-radius: var(--r-ctl); background: var(--step-bg); color: var(--step-ink); font-size: 22px; line-height: 1; }
+  .left { margin: 10px 0 0; font-size: 14px; font-weight: 600; font-variant-numeric: tabular-nums; }
+  .left.off { color: var(--danger); }
+  .left.even { color: var(--ok); }
+  .textbtn { background: none; border: 0; padding: 10px 0 0; color: var(--heading); font-weight: 600; font-size: 15px; text-decoration: underline; text-underline-offset: 3px; }
+
+  /* Receipt pages */
+  .pages { display: grid; grid-template-columns: repeat(auto-fill, minmax(96px, 1fr)); gap: 8px; margin-top: 12px; }
+  .pages:empty { display: none; }
+  .page { position: relative; aspect-ratio: 3 / 4; border: 1px solid var(--line-strong); border-radius: var(--r-ctl); background: #fff; overflow: hidden; display: grid; place-items: center; }
+  .page img { width: 100%; height: 100%; object-fit: contain; }
+  .page .doc { color: #3A424C; font-size: 12px; text-align: center; padding: 6px; word-break: break-word; }
+  .page .doc b { display: block; font-size: 22px; color: #B3261E; margin-bottom: 4px; }
+  .page .rm { position: absolute; top: 4px; right: 4px; width: 32px; height: 32px; font-size: 18px; border-radius: 50%; background: rgba(28,35,43,.75); color: #fff; border: 0; }
+  .page .n { position: absolute; left: 4px; bottom: 4px; font-size: 12px; font-weight: 700; background: rgba(28,35,43,.75); color: #fff; border-radius: 999px; padding: 1px 8px; }
+  .adds { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-top: 12px; }
+  .adds button { min-height: 52px; border-radius: var(--r-ctl); font-weight: 600; }
+  .secondary { background: var(--step-bg); border: 1px solid var(--step-line); color: var(--step-ink); }
+
+  .check-row { display: flex; align-items: flex-start; gap: 12px; padding: 12px 0 0; margin-top: 12px; border-top: 1px solid var(--line); cursor: pointer; }
+  .check-row input { flex: none; width: 24px; height: 24px; margin: 0; accent-color: var(--on-bg); }
+  .check-row strong { display: block; font-weight: 600; }
+  .check-row small { display: block; font-size: 13px; color: var(--muted); }
+
+  .link { justify-self: center; background: none; border: 0; color: var(--muted); text-decoration: underline; padding: 10px; font-size: 14px; }
+
+  /* Bottom bar */
+  .bar {
+    position: fixed;
+    left: 0; right: 0; bottom: 0;
+    background: var(--band-bg);
+    color: var(--band-ink);
+    padding: 10px max(16px, env(safe-area-inset-right)) calc(10px + env(safe-area-inset-bottom)) max(16px, env(safe-area-inset-left));
+    box-shadow: 0 -2px 12px rgba(0, 0, 0, .15);
+    z-index: 4;
+  }
+  .bar-inner { max-width: 560px; margin: 0 auto; display: flex; align-items: center; gap: 12px; }
+  .total { flex: 1; line-height: 1.1; min-width: 0; }
+  .total span { display: block; font-size: 12.5px; color: var(--band-sub); text-transform: uppercase; letter-spacing: .06em; }
+  .total strong { font-family: var(--title-font); font-size: 28px; font-weight: 700; font-variant-numeric: tabular-nums; }
+  .primary {
+    min-height: 50px;
+    padding: 0 24px;
+    border: 0;
+    border-radius: var(--r-ctl);
+    background: var(--btn-bg);
+    color: var(--btn-ink);
+    font-size: 17px;
+    font-weight: 600;
+  }
+  .primary:disabled { opacity: .6; }
+  .bar .primary:focus-visible { outline-color: #FFFFFF; }
+
+  .gate { max-width: 420px; width: 100%; justify-self: center; margin-top: 12px; }
+  .gate .primary { width: 100%; margin-top: 14px; }
+
+  .loading { text-align: center; padding: 48px 16px; color: var(--muted); }
+  .loading button { min-height: 46px; padding: 0 22px; border-radius: var(--r-ctl); font-weight: 600; }
+
+  /* Dialogs */
+  .overlay {
+    position: fixed;
+    inset: 0;
+    background: rgba(14, 18, 24, .55);
+    display: flex;
+    align-items: flex-end;
+    justify-content: center;
+    padding: 16px;
+    z-index: 10;
+  }
+  @media (min-width: 600px) { .overlay { align-items: center; } }
+  .sheet {
+    width: 100%;
+    max-width: 440px;
+    background: var(--card);
+    border-top: 3px solid var(--rule);
+    border-radius: var(--r-card);
+    padding: 22px 20px 18px;
+    box-shadow: 0 10px 40px rgba(0, 0, 0, .25);
+    margin-bottom: env(safe-area-inset-bottom);
+  }
+  .sheet h3 { margin: 0 0 6px; font-family: var(--title-font); text-transform: var(--title-case); font-size: 22px; font-weight: var(--title-weight); }
+  .sheet p { margin: 0 0 18px; color: var(--muted); }
+  .sheet .big { display: block; font-family: var(--title-font); font-size: 34px; font-weight: 700; color: var(--ink); line-height: 1.1; margin-bottom: 2px; font-variant-numeric: tabular-nums; }
+  .sheet .warn { display: block; margin-top: 10px; padding: 8px 10px; border-radius: var(--r-ctl); background: var(--warn-bg); color: var(--warn-ink); font-weight: 500; }
+  .sheet-buttons { display: flex; gap: 10px; }
+  .sheet-buttons button { flex: 1; min-height: 50px; border-radius: var(--r-ctl); font-weight: 600; padding: 0 12px; }
+  .done { text-align: center; }
+  .check { width: 60px; height: 60px; margin: 0 auto 12px; border-radius: 50%; background: var(--ok); display: grid; place-items: center; }
+  .check::after { content: ""; width: 13px; height: 24px; border-right: 4px solid var(--ok-ink); border-bottom: 4px solid var(--ok-ink); transform: rotate(45deg) translate(-2px, -3px); }
+  .spinner { width: 44px; height: 44px; margin: 4px auto 14px; border-radius: 50%; border: 4px solid var(--line); border-top-color: var(--on-bg); animation: spin 1s linear infinite; }
+  @keyframes spin { to { transform: rotate(360deg); } }
+
+  /* Account picker */
+  .picker { align-items: stretch; padding: 0; }
+  @media (min-width: 600px) { .picker { padding: 24px; align-items: center; } }
+  .picker-sheet {
+    width: 100%;
+    max-width: 560px;
+    background: var(--card);
+    display: flex;
+    flex-direction: column;
+    max-height: 100%;
+    padding-top: env(safe-area-inset-top);
+  }
+  @media (min-width: 600px) { .picker-sheet { border-radius: var(--r-card); max-height: 86vh; } }
+  .picker-head { display: flex; align-items: center; gap: 10px; padding: 12px 12px 8px 16px; }
+  .picker-head b { flex: 1; font-family: var(--title-font); text-transform: var(--title-case); font-size: 20px; font-weight: var(--title-weight); }
+  .x { width: 44px; height: 44px; border: 0; border-radius: var(--r-ctl); background: var(--step-bg); color: var(--step-ink); font-size: 24px; line-height: 1; }
+  .picker-search { padding: 0 16px 10px; border-bottom: 1px solid var(--line); }
+  .picker-search input { width: 100%; min-height: 46px; padding: 10px 12px; border: 1px solid var(--line-strong); border-radius: var(--r-ctl); background: var(--input); }
+  .picker-list { overflow-y: auto; -webkit-overflow-scrolling: touch; padding: 4px 8px calc(16px + env(safe-area-inset-bottom)); }
+  .p-section { margin: 14px 8px 2px; font-size: 12.5px; font-weight: 700; letter-spacing: .1em; text-transform: uppercase; color: var(--heading); }
+  .p-group { margin: 10px 8px 2px; font-size: 13px; font-weight: 600; color: var(--muted); }
+  .p-item { display: flex; gap: 10px; width: 100%; min-height: 46px; align-items: center; padding: 8px; border: 0; border-radius: var(--r-ctl); background: none; text-align: left; }
+  .p-item:hover, .p-item:focus-visible { background: var(--step-bg); }
+  .p-item .num { flex: none; width: 44px; font-variant-numeric: tabular-nums; color: var(--muted); font-size: 14px; }
+  .p-item[aria-selected="true"] { background: var(--step-bg); font-weight: 600; }
+  .p-unsure { border: 1px dashed var(--line-strong); margin-top: 8px; }
+  .p-none { padding: 20px 8px; color: var(--muted); }
+
+  .toast {
+    position: fixed;
+    left: 12px; right: 12px;
+    bottom: calc(86px + env(safe-area-inset-bottom));
+    max-width: 536px;
+    margin: 0 auto;
+    background: var(--danger);
+    color: var(--danger-ink);
+    padding: 12px 14px;
+    border-radius: var(--r-card);
+    font-size: 15px;
+    z-index: 60;
+  }
+</style>
+</head>
+<body data-org="">
+  <header class="top" id="top">
+    <img id="topLogo" alt="" hidden>
+    <div class="wordmark"><b id="topName">Business Office</b><span>Purchase Request</span></div>
+  </header>
+
+  <div class="loading" id="loading">
+    <p id="loadingText">Loading&hellip;</p>
+    <button type="button" class="secondary" id="retry" hidden>Try again</button>
+  </div>
+
+  <main id="gate" hidden>
+    <form class="card gate" id="gateForm">
+      <h2>Staff Code</h2>
+      <label class="field">
+        <span>Enter the 6-digit code</span>
+        <input id="gateCode" type="password" inputmode="numeric" autocomplete="off" maxlength="20">
+      </label>
+      <p class="hint">Get the code from the business office. This phone remembers it.</p>
+      <button type="submit" class="primary" id="gateGo">Continue</button>
+    </form>
+  </main>
+
+  <main id="form" hidden>
+    <section class="card" id="orgCard">
+      <h2>Organization</h2>
+      <div class="orgs" id="orgs" role="radiogroup" aria-label="Organization">
+        <button type="button" class="org" role="radio" aria-checked="false" data-org="GBC"><img src="brand/gbc-mark.svg" alt=""><span>Grace Baptist Church</span></button>
+        <button type="button" class="org" role="radio" aria-checked="false" data-org="ICA"><img src="brand/ica-crest.png" alt=""><span>Indiana Christian Academy</span></button>
+        <button type="button" class="org" role="radio" aria-checked="false" data-org="FRH"><img src="brand/frh-mark.svg" alt=""><span>Fire Rescue House</span></button>
+      </div>
+      <p class="hint" id="orgHint">Which ministry is this purchase for?</p>
+    </section>
+
+    <div id="rest" hidden>
+      <section class="card" id="typeCard">
+        <h2>Purchase</h2>
+        <div class="chips" id="types" role="radiogroup" aria-label="Type of request">
+          <button type="button" class="chip" role="radio" aria-checked="false" data-type="Reimbursement">Reimburse me</button>
+          <button type="button" class="chip" role="radio" aria-checked="false" data-type="Credit card">Credit card</button>
+          <button type="button" class="chip" role="radio" aria-checked="false" data-type="Invoice">Invoice</button>
+        </div>
+        <p class="hint" id="typeHint">Pick one.</p>
+        <div id="typeFields" hidden>
+          <label class="field">
+            <span id="dateLabel">Date of purchase</span>
+            <input type="date" id="date">
+          </label>
+          <div class="field" id="cardWrap" hidden>
+            <label class="label" for="cardholder">Whose card was used?</label>
+            <select id="cardholder"></select>
+            <div id="cardOtherWrap" hidden>
+              <input id="cardOther" maxlength="60" autocapitalize="words" placeholder="Name on the card" style="margin-top:8px">
+            </div>
+          </div>
+          <div id="payeeWrap" hidden>
+            <div class="chips two" id="payeeKinds" role="radiogroup" aria-label="Make payable to">
+              <button type="button" class="chip" role="radio" aria-checked="true" data-payee="Vendor">A vendor</button>
+              <button type="button" class="chip" role="radio" aria-checked="false" data-payee="Individual">A person</button>
+            </div>
+          </div>
+          <label class="field">
+            <span id="payLabel">Store or vendor</span>
+            <input id="payTo" maxlength="120" autocapitalize="words" autocomplete="off">
+          </label>
+        </div>
+      </section>
+
+      <section class="card">
+        <h2>Description</h2>
+        <label class="field">
+          <span>What was bought, and what is it for?</span>
+          <textarea id="description" maxlength="2000"></textarea>
+        </label>
+      </section>
+
+      <section class="card" id="amountCard">
+        <h2>Amount and Account</h2>
+        <label class="field">
+          <span>Total amount</span>
+          <div class="money big"><span>$</span><input id="amount" inputmode="decimal" autocomplete="off" placeholder="0.00"></div>
+        </label>
+        <div class="field" style="margin-bottom:0"><span class="label" id="acctLabel">Ministry account</span></div>
+        <div id="lines"></div>
+        <p class="left" id="left" hidden></p>
+        <button type="button" class="textbtn" id="split">Split between accounts</button>
+        <button type="button" class="textbtn" id="addLine" hidden>Add another account</button>
+      </section>
+
+      <section class="card" id="receiptCard">
+        <h2>Receipt</h2>
+        <p class="hint" id="receiptHint">Take a picture of each page of the receipt, or add a PDF from an email.</p>
+        <div class="pages" id="pages"></div>
+        <div class="adds">
+          <button type="button" class="secondary" id="takePhoto">Take photo</button>
+          <button type="button" class="secondary" id="chooseFile">Choose photo or PDF</button>
+        </div>
+        <input type="file" id="cameraInput" accept="image/*" capture="environment" hidden>
+        <input type="file" id="fileInput" accept="image/*,application/pdf" multiple hidden>
+        <label class="check-row" id="followWrap" hidden>
+          <input type="checkbox" id="toFollow">
+          <span><strong>The invoice hasn&rsquo;t come yet</strong>
+            <small>Send the request now. When the invoice arrives, reply to your copy of this request with it attached.</small></span>
+        </label>
+      </section>
+
+      <section class="card">
+        <h2>Requested By</h2>
+        <label class="field">
+          <span>Your name</span>
+          <input id="requestedBy" maxlength="60" autocomplete="name" autocapitalize="words" placeholder="First and last name">
+        </label>
+        <label class="field">
+          <span>Your email</span>
+          <input id="email" type="email" maxlength="100" autocomplete="email" autocapitalize="off" spellcheck="false" placeholder="name@example.org">
+        </label>
+        <p class="hint">You&rsquo;ll get a copy of the request with the receipt. This phone remembers your name and email.</p>
+      </section>
+
+      <button type="button" class="link" id="clear">Clear form</button>
+    </div>
+  </main>
+
+  <div class="bar" id="bar" hidden>
+    <div class="bar-inner">
+      <div class="total"><span>Amount</span><strong id="barTotal">$0.00</strong></div>
+      <button type="button" class="primary" id="submit">Send request</button>
+    </div>
+  </div>
+
+  <div class="toast" id="toast" role="alert" hidden></div>
+
+  <div class="overlay" id="dialog" hidden>
+    <div class="sheet" role="dialog" aria-modal="true" aria-labelledby="dialogTitle">
+      <div class="check" id="dialogCheck" hidden></div>
+      <div class="spinner" id="dialogSpin" hidden></div>
+      <h3 id="dialogTitle"></h3>
+      <p id="dialogBody"></p>
+      <div class="sheet-buttons" id="dialogButtons">
+        <button type="button" class="secondary" id="dialogCancel">Cancel</button>
+        <button type="button" class="primary" id="dialogOk">OK</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="overlay picker" id="picker" hidden>
+    <div class="picker-sheet" role="dialog" aria-modal="true" aria-labelledby="pickerTitle">
+      <div class="picker-head"><b id="pickerTitle">Pick an account</b><button type="button" class="x" id="pickerClose" aria-label="Close">&times;</button></div>
+      <div class="picker-search"><input type="search" id="pickerSearch" placeholder="Search by name or number" autocomplete="off" aria-label="Search accounts"></div>
+      <div class="picker-list" id="pickerList"></div>
+    </div>
+  </div>
+
+<script src="receipt.js"></script>
+<script>
+  // The Apps Script web app URL (Deploy > Manage deployments). It stays the
+  // same when a new version is deployed.
+  const API_URL = '';
+  const KEY = {
+    code: 'pr-code', config: 'pr-config', name: 'pr-name', email: 'pr-email', org: 'pr-org',
+  };
+  const NOT_SURE = '?';
+  const ORGS = {
+    '': { name: 'Business Office', logo: '', theme: '#2B3440', example: '' },
+    GBC: { name: 'Grace Baptist Church', logo: 'brand/gbc-logo-white.svg', theme: '#233617', center: true,
+      example: 'Paper plates and cups for Harvest Family Night' },
+    ICA: { name: 'Indiana Christian Academy', logo: 'brand/ica-crest.png', theme: '#172233',
+      example: 'Craft supplies for the 3rd grade Thanksgiving project' },
+    FRH: { name: 'Fire Rescue House', logo: 'brand/frh-mark-light.svg', theme: '#1F2326',
+      example: 'Cleaning supplies for the guest rooms' },
+  };
+  const TYPE_HINTS = {
+    Reimbursement: 'You paid with your own money and need to be paid back.',
+    'Credit card': 'Bought with a church, school or FRH credit card.',
+    Invoice: 'A bill for the business office to pay.',
+  };
+
+  const $ = (sel) => document.querySelector(sel);
+  const $$ = (sel) => Array.from(document.querySelectorAll(sel));
+  let CONFIG;
+  let org = '';
+  let type = '';
+  let payee = 'Vendor';
+  let split = false;
+  let lines = [{ qb: '', amount: '' }];
+  let pages = [];   // {jpeg: Blob, url} or {pdf: Uint8Array, name, count}
+
+  function esc(s) {
+    return String(s).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+  }
+  function store(fn) {
+    try { return fn(window.localStorage); } catch (e) { return null; }
+  }
+
+  // ---- Money ------------------------------------------------------------------
+
+  function parseMoney(v) {
+    const s = String(v || '').replace(/[$,\s]/g, '');
+    if (!/^\d*\.?\d{0,2}$/.test(s) || s === '' || s === '.') return NaN;
+    return Math.round(Number(s) * 100) / 100;
+  }
+  function dollars(n) {
+    return '$' + (isFinite(n) ? n : 0).toFixed(2).replace(/\B(?=(\d{3})+(?!\d))/g, ',');
+  }
+  function cents(n) { return Math.round(n * 100); }
+
+  // ---- Organization and look --------------------------------------------------
+
+  function setOrg(key, keepLines) {
+    const changed = key !== org;
+    org = key;
+    document.body.dataset.org = key;
+    const o = ORGS[key];
+    $('#top').classList.toggle('center', !!o.center);
+    $('#topLogo').hidden = !o.logo;
+    if (o.logo) $('#topLogo').src = o.logo;
+    $('#topLogo').alt = o.logo ? o.name : '';
+    $('#topName').textContent = o.name;
+    document.querySelector('meta[name="theme-color"]').setAttribute('content', o.theme);
+    $('#description').placeholder = o.example;
+    $$('.org').forEach((b) => b.setAttribute('aria-checked', String(b.dataset.org === key)));
+    $('#orgs').classList.toggle('picked', !!key);
+    $('#orgHint').hidden = !!key;
+    $('#rest').hidden = !key;
+    $('#bar').hidden = !key;
+    if (key) store((s) => s.setItem(KEY.org, key));
+    if (changed) {
+      // Each organization has its own accounts and cards.
+      if (!keepLines) lines = lines.map((l) => ({ qb: '', amount: l.amount }));
+      renderLines();
+      fillCardholders(keepLines ? selectedCard() : null);
+    }
+  }
+
+  function setType(t) {
+    type = t;
+    $$('#types .chip').forEach((c) => c.setAttribute('aria-checked', String(c.dataset.type === t)));
+    $('#typeHint').textContent = TYPE_HINTS[t] || 'Pick one.';
+    $('#typeFields').hidden = !t;
+    $('#dateLabel').textContent = t === 'Invoice' ? 'Invoice date' : 'Date of purchase';
+    $('#cardWrap').hidden = t !== 'Credit card';
+    $('#payeeWrap').hidden = t !== 'Invoice';
+    $('#followWrap').hidden = t !== 'Invoice';
+    if (t !== 'Invoice') $('#toFollow').checked = false;
+    if (t === 'Reimbursement' && !$('#payTo').value.trim()) $('#payTo').value = $('#requestedBy').value.trim();
+    updatePayLabel();
+    updateReceipt();
+  }
+
+  function setPayee(p) {
+    payee = p;
+    $$('#payeeKinds .chip').forEach((c) => c.setAttribute('aria-checked', String(c.dataset.payee === p)));
+    updatePayLabel();
+  }
+
+  function updatePayLabel() {
+    const label = type === 'Reimbursement' ? 'Who should be paid back?'
+      : type === 'Credit card' ? 'Store or vendor'
+      : payee === 'Individual' ? 'Make the check out to (person)' : 'Make the check out to (vendor)';
+    $('#payLabel').textContent = label;
+    $('#payTo').placeholder = type === 'Reimbursement' ? 'Your name' : type === 'Credit card' ? 'Walmart, Amazon, Lowe\u2019s\u2026' : '';
+  }
+
+  function cardList() { return (CONFIG && CONFIG.cardholders[org]) || []; }
+
+  /** Fills the cardholder list for the organization, keeping {name} picked if it's still there. */
+  function fillCardholders(selected) {
+    const cards = cardList();
+    const sel = $('#cardholder');
+    sel.innerHTML = '<option value="">Pick a name</option>' +
+      cards.map((name, i) => '<option value="' + i + '">' + esc(name) + '</option>').join('') +
+      '<option value="*">Someone else</option>';
+    if (!cards.length) sel.innerHTML = '<option value="*">Type the name on the card</option>';
+    const pick = selected && selected.name ? selected : null;
+    const at = pick ? cards.indexOf(pick.name) : -1;
+    sel.value = at !== -1 ? String(at) : (pick || !cards.length ? '*' : '');
+    $('#cardOtherWrap').hidden = sel.value !== '*';
+    $('#cardOther').value = at === -1 && pick ? pick.name : '';
+  }
+
+  // ---- Accounts ---------------------------------------------------------------
+
+  function accountList() { return (CONFIG && CONFIG.accounts[org]) || []; }
+  function findAccount(qb) { return accountList().find((a) => a.qb === qb); }
+
+  function renderLines() {
+    const box = $('#lines');
+    box.innerHTML = lines.map((l, i) => {
+      const a = l.qb === NOT_SURE ? null : findAccount(l.qb);
+      const name = l.qb === NOT_SURE ? 'Not sure: the business office will choose'
+        : a ? (a.number ? a.number + ' ' : '') + a.name : 'Pick an account';
+      const group = a ? (a.section === 'Designated funds' ? 'Designated fund' : a.group.replace(/^\d+\s*/, '')) : '';
+      return '<div class="line' + (split ? ' split' : '') + '">' +
+        '<button type="button" class="acct' + (l.qb ? '' : ' empty') + '" data-pick="' + i + '" aria-label="Account ' + (i + 1) + ': ' + esc(name) + '">' +
+        '<span class="a-name">' + esc(name) + '</span>' + (group ? '<span class="a-group">' + esc(group) + '</span>' : '') + '</button>' +
+        (split ? '<label class="money"><span>$</span><input class="line-amt" data-i="' + i + '" inputmode="decimal" autocomplete="off" placeholder="0.00" value="' + esc(l.amount) + '" aria-label="Amount for account ' + (i + 1) + '"></label>' +
+          '<button type="button" class="rm" data-rm="' + i + '" aria-label="Remove account ' + (i + 1) + '">&times;</button>' : '') +
+        '</div>';
+    }).join('');
+    $('#split').hidden = split;
+    $('#addLine').hidden = !split;
+    $('#acctLabel').textContent = split ? 'Ministry accounts' : 'Ministry account';
+    updateLeft();
+  }
+
+  function updateLeft() {
+    const total = parseMoney($('#amount').value);
+    $('#barTotal').textContent = dollars(total);
+    const el = $('#left');
+    el.hidden = !split;
+    if (!split) return;
+    const used = lines.reduce((n, l) => n + (cents(parseMoney(l.amount)) || 0), 0);
+    if (!isFinite(total)) {
+      el.textContent = 'Split so far: ' + dollars(used / 100);
+      el.className = 'left';
+      return;
+    }
+    const left = cents(total) - used;
+    el.textContent = left === 0 ? 'The accounts add up to the total.'
+      : left > 0 ? dollars(left / 100) + ' still to assign'
+      : dollars(-left / 100) + ' more than the total';
+    el.className = 'left ' + (left === 0 ? 'even' : 'off');
+  }
+
+  let pickFor = 0;
+  function openPicker(i) {
+    pickFor = i;
+    $('#pickerSearch').value = '';
+    renderPicker('');
+    $('#picker').hidden = false;
+    document.documentElement.style.overflow = 'hidden';
+    // On phones, a keyboard right away hides most of the list.
+    if (window.matchMedia('(pointer: fine)').matches) $('#pickerSearch').focus();
+    const on = $('#pickerList [aria-selected="true"]');
+    if (on) on.scrollIntoView({ block: 'center' });
+  }
+  function closePicker() {
+    $('#picker').hidden = true;
+    document.documentElement.style.overflow = '';
+  }
+
+  function renderPicker(query) {
+    const words = query.toLowerCase().split(/\s+/).filter(Boolean);
+    const current = lines[pickFor] ? lines[pickFor].qb : '';
+    const hits = accountList().filter((a) => {
+      const hay = (a.number + ' ' + a.name + ' ' + a.group + ' ' + a.section).toLowerCase();
+      return words.every((w) => hay.indexOf(w) !== -1);
+    });
+    let html = '';
+    if (!words.length) {
+      html += '<button type="button" class="p-item p-unsure" data-qb="?" aria-selected="' + (current === NOT_SURE) + '">' +
+        '<span class="num">?</span><span>Not sure: the business office will choose</span></button>';
+    }
+    let section = '';
+    let group = '';
+    hits.forEach((a) => {
+      if (a.section !== section) {
+        section = a.section;
+        group = '';
+        html += '<div class="p-section">' + esc(section) + '</div>';
+      }
+      if (a.group !== group) {
+        group = a.group;
+        html += '<div class="p-group">' + esc(group) + '</div>';
+      }
+      html += '<button type="button" class="p-item" data-qb="' + esc(a.qb) + '" aria-selected="' + (current === a.qb) + '">' +
+        '<span class="num">' + esc(a.number) + '</span><span>' + esc(a.name) + '</span></button>';
+    });
+    if (words.length && !hits.length) html = '<p class="p-none">No account matches \u201c' + esc(query) + '\u201d.</p>';
+    $('#pickerList').innerHTML = html;
+  }
+
+  // ---- Receipt pages ----------------------------------------------------------
+
+  function renderPages() {
+    $('#pages').innerHTML = pages.map((p, i) =>
+      '<div class="page">' + (p.jpeg ? '<img src="' + p.url + '" alt="Receipt page ' + (i + 1) + '">'
+        : '<div class="doc"><b>PDF</b>' + esc(p.name) + '<br>' + p.count + (p.count === 1 ? ' page' : ' pages') + '</div>') +
+      '<span class="n">' + (i + 1) + '</span>' +
+      '<button type="button" class="rm" data-rmpage="' + i + '" aria-label="Remove page ' + (i + 1) + '">&times;</button></div>').join('');
+    updateReceipt();
+  }
+
+  function updateReceipt() {
+    const n = pages.length;
+    $('#takePhoto').textContent = n ? 'Take another photo' : 'Take photo';
+    $('#receiptHint').textContent = $('#toFollow').checked && !n
+      ? 'You can send this without the invoice.'
+      : type === 'Invoice' ? 'Take a picture of each page of the invoice, or add the PDF.'
+      : 'Take a picture of each page of the receipt, or add a PDF from an email.';
+  }
+
+  async function addFiles(files) {
+    for (const file of Array.from(files)) {
+      try {
+        if (file.type === 'application/pdf' || /\.pdf$/i.test(file.name)) {
+          const info = await Receipt.pdfInfo(file);
+          pages.push({ pdf: info.bytes, name: file.name, count: info.pages });
+        } else {
+          const page = await Receipt.scan(file);
+          if (page) pages.push({ jpeg: page.blob, url: page.url });
+        }
+        renderPages();
+      } catch (err) {
+        toast(err.message);
+      }
+    }
+  }
+
+  // ---- Form state -------------------------------------------------------------
+
+  function today() {
+    const d = new Date();
+    return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0');
+  }
+
+  function tidyName(value) {
+    const s = value.trim().replace(/\s+/g, ' ');
+    return s === s.toLowerCase() ? s.replace(/(^|[\s'-])([a-z])/g, (m, before, letter) => before + letter.toUpperCase()) : s;
+  }
+
+  /** {name} of the cardholder picked, or typed in under "Someone else". */
+  function selectedCard() {
+    const v = $('#cardholder').value;
+    if (v === '*') return { name: tidyName($('#cardOther').value) };
+    return { name: cardList()[Number(v)] || '' };
+  }
+
+  function collect() {
+    const total = parseMoney($('#amount').value);
+    return {
+      org: org,
+      type: type,
+      date: $('#date').value,
+      cardholder: type === 'Credit card' ? selectedCard().name : '',
+      payeeType: type === 'Reimbursement' ? 'Individual' : type === 'Credit card' ? 'Vendor' : payee,
+      payTo: $('#payTo').value.trim(),
+      description: $('#description').value.trim(),
+      amount: total,
+      lines: split ? lines.map((l) => ({ qb: l.qb, amount: parseMoney(l.amount) })) : [{ qb: lines[0].qb, amount: total }],
+      requestedBy: tidyName($('#requestedBy').value),
+      email: $('#email').value.trim(),
+      receiptToFollow: type === 'Invoice' && $('#toFollow').checked,
+    };
+  }
+
+  function resetForm() {
+    setType('');
+    setPayee('Vendor');
+    $('#date').value = today();
+    $('#payTo').value = '';
+    $('#description').value = '';
+    $('#amount').value = '';
+    $('#toFollow').checked = false;
+    split = false;
+    lines = [{ qb: '', amount: '' }];
+    pages.forEach((p) => { if (p.url) URL.revokeObjectURL(p.url); });
+    pages = [];
+    $('#requestedBy').value = store((s) => s.getItem(KEY.name)) || '';
+    $('#email').value = store((s) => s.getItem(KEY.email)) || '';
+    fillCardholders(null);
+    renderLines();
+    renderPages();
+    window.scrollTo(0, 0);
+  }
+
+  // ---- Dialogs and messages ---------------------------------------------------
+
+  let toastTimer;
+  function toast(msg) {
+    const t = $('#toast');
+    t.textContent = msg;
+    t.hidden = false;
+    clearTimeout(toastTimer);
+    toastTimer = setTimeout(() => { t.hidden = true; }, 6000);
+  }
+
+  function dialog(opts) {
+    return new Promise((resolve) => {
+      $('#dialogTitle').textContent = opts.title;
+      $('#dialogBody').innerHTML = opts.body || '';
+      $('#dialogOk').textContent = opts.ok || 'OK';
+      $('#dialogCancel').hidden = !opts.cancel;
+      $('#dialogCancel').textContent = opts.cancel || '';
+      $('#dialogButtons').hidden = !!opts.busy;
+      $('#dialogSpin').hidden = !opts.busy;
+      $('#dialogCheck').hidden = !opts.check;
+      $('.sheet').classList.toggle('done', !!opts.check || !!opts.busy);
+      $('#dialog').hidden = false;
+      if (opts.busy) return resolve();
+      $('#dialogOk').focus();
+      const finish = (ok) => {
+        $('#dialog').hidden = true;
+        $('#dialogOk').onclick = $('#dialogCancel').onclick = null;
+        resolve(ok);
+      };
+      $('#dialogOk').onclick = () => finish(true);
+      $('#dialogCancel').onclick = () => finish(false);
+    });
+  }
+
+  function dateLabel(value) {
+    const [y, m, d] = value.split('-').map(Number);
+    return new Date(y, m - 1, d).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' });
+  }
+
+  function names(list) {
+    if (list.length < 2) return list.join('');
+    return list.slice(0, -1).join(', ') + ' and ' + list[list.length - 1];
+  }
+
+  // ---- Talking to the sheet ---------------------------------------------------
+
+  // Every request is a POST with the staff code. The body is plain text and
+  // no cookies are sent, so there's no CORS preflight and no Google login.
+  async function api(body) {
+    if (!API_URL) throw new Error('This page isn\u2019t connected to the purchase request sheet yet.');
+    let res;
+    try {
+      const r = await fetch(API_URL, { method: 'POST', body: JSON.stringify(body) });
+      res = await r.json();
+    } catch (e) {
+      throw new Error('Couldn\u2019t reach the business office sheet. Check your connection.');
+    }
+    if (res.status === 'error') throw new Error(res.message);
+    return res;
+  }
+
+  function forgetCode() {
+    store((s) => s.removeItem(KEY.code));
+    store((s) => s.removeItem(KEY.config));
+  }
+
+  // ---- Submit -----------------------------------------------------------------
+
+  function validate(d) {
+    if (!d.org) return ['Pick the organization.', '#orgCard'];
+    if (!d.type) return ['Pick reimbursement, credit card or invoice.', '#typeCard'];
+    if (!d.date) return [d.type === 'Invoice' ? 'Enter the invoice date.' : 'Enter the date of purchase.', '#date'];
+    if (d.date > today()) return ['The date can\u2019t be in the future.', '#date'];
+    if (d.type === 'Credit card' && !d.cardholder) return ['Pick whose card was used.', $('#cardholder').value === '*' ? '#cardOther' : '#cardholder'];
+    if (!d.payTo) return [d.type === 'Reimbursement' ? 'Enter who should be paid back.' : d.type === 'Credit card' ? 'Enter the store or vendor.' : 'Enter who the check is made out to.', '#payTo'];
+    if (!d.description) return ['Describe what was bought and what it\u2019s for.', '#description'];
+    if (!(d.amount > 0)) return ['Enter the total amount, like 45.10.', '#amount'];
+    if (d.lines.some((l) => !l.qb)) return [split ? 'Pick an account for each line.' : 'Pick an account, or \u201cNot sure\u201d.', '#amountCard'];
+    if (split) {
+      if (d.lines.some((l) => !(l.amount > 0))) return ['Enter an amount for each account.', '#amountCard'];
+      const used = d.lines.reduce((n, l) => n + cents(l.amount), 0);
+      if (used !== cents(d.amount)) return ['The accounts add up to ' + dollars(used / 100) + ', but the total is ' + dollars(d.amount) + '.', '#amountCard'];
+    }
+    if (!pages.length && !d.receiptToFollow) {
+      return [d.type === 'Invoice' ? 'Add the invoice, or check \u201cThe invoice hasn\u2019t come yet\u201d.' : 'Add a picture or PDF of the receipt.', '#receiptCard'];
+    }
+    if (!d.requestedBy) return ['Enter your name.', '#requestedBy'];
+    if (!/^[^\s@]+@[^\s@]+\.[a-z]{2,}$/i.test(d.email)) return ['Enter your email address.', '#email'];
+    return null;
+  }
+
+  async function submit() {
+    const data = collect();
+    const problem = validate(data);
+    if (problem) {
+      toast(problem[0]);
+      const el = $(problem[1]);
+      el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      if (el.matches('input, textarea, select')) el.focus({ preventScroll: true });
+      return;
+    }
+    $('#toast').hidden = true;
+    const accts = data.lines.map((l) => {
+      if (l.qb === NOT_SURE) return 'Account: not sure';
+      const a = findAccount(l.qb);
+      return (a.number ? a.number + ' ' : '') + a.name + (split ? ' ' + dollars(l.amount) : '');
+    });
+    const ok = await dialog({
+      title: 'Send this request?',
+      body: '<span class="big">' + dollars(data.amount) + '</span>' + esc(data.payTo) + ' &middot; ' + esc(dateLabel(data.date)) +
+        '<br>' + esc(ORGS[org].name) + ' &middot; ' + esc(data.type) +
+        (data.cardholder ? ': ' + esc(data.cardholder) : '') +
+        '<br>' + accts.map(esc).join('<br>') +
+        (data.receiptToFollow && !pages.length ? '<span class="warn">The invoice will follow.</span>' : ''),
+      ok: 'Send',
+      cancel: 'Go back',
+    });
+    if (ok) send(data);
+  }
+
+  async function send(data) {
+    const btn = $('#submit');
+    btn.disabled = true;
+    let res;
+    try {
+      let pdf = '';
+      if (pages.length) {
+        dialog({ busy: true, title: 'Getting the receipt ready\u2026', body: '' });
+        pdf = await Receipt.buildPdf(pages);
+      }
+      dialog({ busy: true, title: 'Sending\u2026', body: 'This takes a few seconds.' });
+      res = await api({ action: 'submit', code: store((s) => s.getItem(KEY.code)), form: data, receipt: pdf ? { pdf: pdf } : null });
+    } catch (err) {
+      $('#dialog').hidden = true;
+      toast(err.message + ' Your request is still here, so try again.');
+      return;
+    } finally {
+      btn.disabled = false;
+    }
+
+    if (res.status === 'badcode') {
+      $('#dialog').hidden = true;
+      forgetCode();
+      showGate('The staff code has changed. Enter the new one, then send again.');
+      return;
+    }
+    store((s) => s.setItem(KEY.name, data.requestedBy));
+    store((s) => s.setItem(KEY.email, data.email));
+    await dialog({
+      check: true,
+      title: 'Request ' + res.id + ' sent',
+      body: '<span class="big">' + dollars(data.amount) + '</span>' + esc(data.payTo) +
+        (res.notified.length ? '<br>Sent to ' + esc(names(res.notified)) + '.' : '') +
+        (res.copySent ? '<br>A copy is on its way to ' + esc(data.email) + '.' : ''),
+      ok: 'Done',
+    });
+    resetForm();
+  }
+
+  // ---- Events -----------------------------------------------------------------
+
+  document.addEventListener('click', (e) => {
+    const b = e.target.closest('button');
+    if (!b) return;
+    if (b.classList.contains('org')) setOrg(b.dataset.org);
+    else if (b.dataset.type) setType(b.dataset.type);
+    else if (b.dataset.payee) setPayee(b.dataset.payee);
+    else if (b.dataset.pick) openPicker(Number(b.dataset.pick));
+    else if (b.dataset.rm) {
+      lines.splice(Number(b.dataset.rm), 1);
+      if (!lines.length) lines.push({ qb: '', amount: '' });
+      if (lines.length === 1) { split = false; lines[0].amount = ''; }
+      renderLines();
+    } else if (b.dataset.rmpage) {
+      const p = pages.splice(Number(b.dataset.rmpage), 1)[0];
+      if (p.url) URL.revokeObjectURL(p.url);
+      renderPages();
+    } else if (b.dataset.qb !== undefined && b.closest('#pickerList')) {
+      lines[pickFor].qb = b.dataset.qb;
+      closePicker();
+      renderLines();
+    }
+  });
+
+  $('#split').addEventListener('click', () => {
+    split = true;
+    const total = parseMoney($('#amount').value);
+    lines[0].amount = isFinite(total) ? total.toFixed(2) : '';
+    lines.push({ qb: '', amount: '' });
+    renderLines();
+  });
+  $('#addLine').addEventListener('click', () => {
+    if (lines.length >= 20) return toast('A request can be split across at most 20 accounts.');
+    lines.push({ qb: '', amount: '' });
+    renderLines();
+  });
+  $('#lines').addEventListener('input', (e) => {
+    if (e.target.dataset.i) {
+      lines[Number(e.target.dataset.i)].amount = e.target.value;
+      updateLeft();
+    }
+  });
+  $('#lines').addEventListener('focusout', (e) => {
+    const v = parseMoney(e.target.value);
+    if (e.target.dataset.i && isFinite(v)) {
+      e.target.value = lines[Number(e.target.dataset.i)].amount = v.toFixed(2);
+    }
+  });
+  $('#amount').addEventListener('input', updateLeft);
+  $('#amount').addEventListener('blur', () => {
+    const v = parseMoney($('#amount').value);
+    if (isFinite(v)) $('#amount').value = v.toFixed(2);
+    updateLeft();
+  });
+
+  $('#cardholder').addEventListener('change', () => {
+    $('#cardOtherWrap').hidden = $('#cardholder').value !== '*';
+    if (!$('#cardOtherWrap').hidden) $('#cardOther').focus();
+  });
+  $('#requestedBy').addEventListener('change', () => {
+    if (type === 'Reimbursement' && !$('#payTo').value.trim()) $('#payTo').value = tidyName($('#requestedBy').value);
+  });
+
+  $('#pickerClose').addEventListener('click', closePicker);
+  $('#picker').addEventListener('click', (e) => { if (e.target === $('#picker')) closePicker(); });
+  $('#pickerSearch').addEventListener('input', () => renderPicker($('#pickerSearch').value));
+  document.addEventListener('keydown', (e) => { if (e.key === 'Escape' && !$('#picker').hidden) closePicker(); });
+
+  $('#takePhoto').addEventListener('click', () => { Receipt.warm(); $('#cameraInput').click(); });
+  $('#chooseFile').addEventListener('click', () => { Receipt.warm(); $('#fileInput').click(); });
+  ['#cameraInput', '#fileInput'].forEach((id) => {
+    $(id).addEventListener('change', async (e) => {
+      const files = Array.from(e.target.files || []);
+      e.target.value = '';
+      await addFiles(files);
+    });
+  });
+  $('#toFollow').addEventListener('change', updateReceipt);
+
+  $('#submit').addEventListener('click', submit);
+  $('#clear').addEventListener('click', async () => {
+    const ok = await dialog({ title: 'Clear the form?', body: 'This erases everything on this page, including the receipt pictures.', ok: 'Clear', cancel: 'Cancel' });
+    if (ok) resetForm();
+  });
+
+  // ---- Start ------------------------------------------------------------------
+
+  function showGate(msg) {
+    $('#loading').hidden = true;
+    $('#form').hidden = true;
+    $('#bar').hidden = true;
+    $('#gate').hidden = false;
+    $('#gateCode').value = '';
+    if (msg) toast(msg);
+    $('#gateCode').focus();
+  }
+
+  function showForm(config) {
+    const first = !CONFIG;
+    CONFIG = config;
+    $('#loading').hidden = true;
+    $('#gate').hidden = true;
+    $('#form').hidden = false;
+    if (first) {
+      resetForm();
+      const saved = store((s) => s.getItem(KEY.org));
+      setOrg(ORGS[saved] && saved ? saved : '', true);
+    } else {
+      // New lists from the sheet: keep what's filled in, but drop accounts that are gone.
+      const holder = selectedCard();
+      lines.forEach((l) => { if (l.qb && l.qb !== NOT_SURE && !findAccount(l.qb)) l.qb = ''; });
+      fillCardholders(holder);
+      renderLines();
+      $('#bar').hidden = !org;
+    }
+  }
+
+  $('#gateForm').addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const code = $('#gateCode').value.trim();
+    if (!code) return;
+    const btn = $('#gateGo');
+    btn.disabled = true;
+    btn.textContent = 'Checking\u2026';
+    try {
+      const res = await api({ action: 'load', code: code });
+      if (res.status === 'badcode') {
+        showGate('That code isn\u2019t right. Check with the business office.');
+        return;
+      }
+      store((s) => s.setItem(KEY.code, code));
+      store((s) => s.setItem(KEY.config, JSON.stringify(res)));
+      showForm(res);
+    } catch (err) {
+      toast(err.message);
+    } finally {
+      btn.disabled = false;
+      btn.textContent = 'Continue';
+    }
+  });
+
+  // A link ending in #code=123456 saves the code on this phone, so staff
+  // don't have to type it. The part after # never leaves the phone, and it's
+  // taken off the address once read. Returns true if the link had a code.
+  function codeFromLink() {
+    const m = /(?:^#|&)code=([^&]*)/.exec(location.hash);
+    if (!m) return false;
+    const code = decodeURIComponent(m[1]).trim();
+    if (code) store((s) => s.setItem(KEY.code, code));
+    history.replaceState(null, '', location.pathname + location.search);
+    return !!code;
+  }
+
+  // Show the form at once from the lists saved on this phone, then refresh
+  // them from the sheet.
+  async function start() {
+    const fromLink = codeFromLink();
+    const code = store((s) => s.getItem(KEY.code));
+    if (!code) {
+      if (!API_URL) {
+        $('#loadingText').textContent = 'This page isn\u2019t connected to the purchase request sheet yet.';
+        return;
+      }
+      showGate();
+      return;
+    }
+    const cached = store((s) => JSON.parse(s.getItem(KEY.config)));
+    if (cached) showForm(cached);
+    let fresh;
+    try {
+      fresh = await api({ action: 'load', code: code });
+    } catch (err) {
+      if (cached) return;
+      $('#loadingText').textContent = err.message;
+      $('#retry').hidden = false;
+      return;
+    }
+    if (fresh.status === 'badcode') {
+      forgetCode();
+      showGate(fromLink ? 'The code in that link isn\u2019t right. Enter the code from the business office.'
+        : 'The staff code has changed. Enter the new one.');
+      return;
+    }
+    store((s) => s.setItem(KEY.config, JSON.stringify(fresh)));
+    if (!cached || JSON.stringify(fresh) !== JSON.stringify(cached)) showForm(fresh);
+  }
+
+  $('#retry').addEventListener('click', () => {
+    $('#retry').hidden = true;
+    $('#loadingText').textContent = 'Loading\u2026';
+    start();
+  });
+
+  start();
+</script>
+</body>
+</html>
