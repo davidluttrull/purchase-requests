@@ -10,18 +10,13 @@
 <link rel="apple-touch-icon" href="apple-touch-icon.png">
 <link rel="icon" type="image/png" href="icon-192.png">
 <link rel="manifest" href="manifest.webmanifest">
-<link rel="preconnect" href="https://fonts.googleapis.com">
-<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Barlow:wght@400;500;600;700&family=Barlow+Condensed:wght@600;700&family=Crimson+Pro:wght@600;700&family=Libre+Franklin:wght@400;500;600;700&family=Poppins:wght@400;500;600;700&display=swap" rel="stylesheet">
 <!--
-  Staff page for purchase requests. The look follows the organization picked:
-  the Grace Baptist Church tools for GBC, the ICA Crest style for ICA
-  (tokens copied from ICA Design/ica-tokens.css), and Fire Rescue House red
-  and charcoal for FRH. Before one is picked it uses a plain business office
-  look. Each look is a set of the variables below.
+  Staff page for purchase requests. One plain business office look for all
+  three organizations (GBC, ICA and FRH); the organization picked only shows
+  as its name in the header. The look is the set of variables below.
 -->
 <style>
-  /* Business office (before an organization is picked) */
+  /* Business office look */
   :root {
     --font-body: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
     --font-display: var(--font-body);
@@ -32,7 +27,7 @@
     --warn-bg: #FDF0D5; --warn-ink: #7A4E00;
     --shadow: 0 1px 2px rgba(28, 35, 43, .06);
     --r-card: 8px; --r-ctl: 6px;
-    --h2-font: var(--font-body); --h2-size: 13px; --h2-weight: 700; --h2-track: .1em; --h2-rule-w: 0; --h2-rule-h: 0;
+    --h2-font: var(--font-body); --h2-size: 13px; --h2-weight: 700; --h2-track: .1em;
     --title-font: var(--font-body); --title-weight: 600; --title-case: none;
   }
   @media (prefers-color-scheme: dark) {
@@ -42,72 +37,6 @@
       --input: #141A20; --step-bg: #232B35; --step-line: #39434F; --step-ink: #E7EAEE; --on-bg: #E7EAEE; --on-ink: #11151A;
       --heading: #C9CFD8; --btn-bg: #3B7DD8; --focus: #6AA5F0; --danger: #F2B8B5; --danger-ink: #2A0E0C; --ok: #7CC4A0; --ok-ink: #0E141E;
       --warn-bg: #3A2F16; --warn-ink: #F0C66B; --shadow: none;
-    }
-  }
-
-  /* GBC: the Grace Baptist Church tools (Poppins, sage green, rounded) */
-  body[data-org="GBC"] {
-    --font-body: "Poppins", system-ui, -apple-system, sans-serif; --font-display: var(--font-body);
-    --bg: #F3F8EF; --card: #FFFFFF; --ink: #1E2A16; --muted: #5B6A50; --line: #DCE7D3; --line-strong: #C6DBB6;
-    --input: #FFFFFF; --step-bg: #EFF6EA; --step-line: #C6DBB6; --step-ink: #233617; --on-bg: #233617; --on-ink: #FFFFFF;
-    --heading: #4E7A35; --rule: #7BAE58; --band-bg: #233617; --band-sub: #CFE3C0; --band-rule: #233617;
-    --btn-bg: #7BAE58; --btn-ink: #10160C; --focus: #7BAE58; --danger: #B3261E; --danger-ink: #FFFFFF; --ok: #4E7A35; --ok-ink: #FFFFFF;
-    --shadow: 0 1px 2px rgba(35, 54, 23, .06), 0 2px 8px rgba(35, 54, 23, .06);
-    --r-card: 16px; --r-ctl: 12px;
-    --h2-size: 15px; --h2-weight: 600; --h2-track: .06em; --h2-rule-w: 0;
-    --title-weight: 600;
-  }
-  @media (prefers-color-scheme: dark) {
-    body[data-org="GBC"] {
-      --bg: #10160C; --card: #1A2414; --ink: #E8F0E1; --muted: #A3B396; --line: #2D3B24; --line-strong: #3A4D2E;
-      --input: #141C10; --step-bg: #243319; --step-line: #3A4D2E; --step-ink: #E8F0E1; --on-bg: #7BAE58; --on-ink: #10160C;
-      --heading: #7BAE58; --danger: #F2B8B5; --danger-ink: #10160C; --ok: #7BAE58; --ok-ink: #10160C; --shadow: none;
-    }
-  }
-
-  /* ICA: Crest (BEGIN/END is ica-tokens.css, as variables on the body) */
-  body[data-org="ICA"] {
-    /* BEGIN ica-tokens.css */
-    --font-display: "Crimson Pro", Georgia, "Times New Roman", serif;
-    --font-body: "Libre Franklin", "Helvetica Neue", Arial, sans-serif;
-    --bg: #F5F6F8; --card: #FFFFFF; --ink: #172233; --muted: #5B6577; --line: #E3E6EB; --line-strong: #CDD3DC;
-    --input: #FFFFFF; --step-bg: #EEF0F4; --step-line: #CDD3DC; --step-ink: #172233; --filled: #F7F8FA;
-    --on-bg: #172233; --on-ink: #FFFFFF; --heading: #96282D; --rule: #B8913A; --band-bg: #172233; --band-ink: #FFFFFF;
-    --band-sub: #C9CED6; --btn-bg: #96282D; --btn-ink: #FFFFFF; --focus: #96282D; --danger: #B3261E; --danger-ink: #FFFFFF;
-    --ok: #2F6B4F; --ok-ink: #FFFFFF; --shadow: 0 1px 2px rgba(23, 34, 51, .05);
-    /* END ica-tokens.css */
-    --band-rule: #B8913A;
-    --r-card: 6px; --r-ctl: 4px;
-    --h2-size: 12.5px; --h2-weight: 700; --h2-track: .12em; --h2-rule-w: 16px; --h2-rule-h: 2px;
-    --title-font: var(--font-display); --title-weight: 600;
-  }
-  @media (prefers-color-scheme: dark) {
-    body[data-org="ICA"] {
-      --bg: #0E141E; --card: #172131; --ink: #E6EAF0; --muted: #9BA6B6; --line: #26313F; --line-strong: #34404F;
-      --input: #121A27; --step-bg: #1F2A3B; --step-line: #34404F; --step-ink: #E6EAF0; --filled: #1B2535;
-      --on-bg: #C9A24D; --on-ink: #172233; --heading: #C9A24D; --rule: #C9A24D; --btn-bg: #A8343A; --btn-ink: #FFFFFF;
-      --focus: #C9A24D; --danger: #F2B8B5; --danger-ink: #2A0E0C; --ok: #7CC4A0; --ok-ink: #0E141E; --shadow: none;
-      --band-rule: #C9A24D;
-    }
-  }
-
-  /* FRH: Fire Rescue House red and charcoal, Barlow */
-  body[data-org="FRH"] {
-    --font-body: "Barlow", "Helvetica Neue", Arial, sans-serif; --font-display: "Barlow Condensed", "Arial Narrow", sans-serif;
-    --bg: #F4F4F3; --card: #FFFFFF; --ink: #1D2124; --muted: #5E6368; --line: #E2E3E4; --line-strong: #CBCDCF;
-    --input: #FFFFFF; --step-bg: #EFEFEE; --step-line: #CBCDCF; --step-ink: #1D2124; --on-bg: #1F2326; --on-ink: #FFFFFF;
-    --heading: #B81D24; --rule: #D8232A; --band-bg: #1F2326; --band-sub: #C5C8CB; --band-rule: #D8232A;
-    --btn-bg: #D8232A; --btn-ink: #FFFFFF; --focus: #D8232A; --danger: #B3261E; --danger-ink: #FFFFFF; --ok: #2F6B4F; --ok-ink: #FFFFFF;
-    --shadow: 0 1px 2px rgba(29, 33, 36, .06);
-    --r-card: 6px; --r-ctl: 4px;
-    --h2-font: var(--font-display); --h2-size: 15px; --h2-weight: 700; --h2-track: .08em; --h2-rule-w: 4px; --h2-rule-h: 16px;
-    --title-font: var(--font-display); --title-weight: 700; --title-case: uppercase;
-  }
-  @media (prefers-color-scheme: dark) {
-    body[data-org="FRH"] {
-      --bg: #121416; --card: #1C1F22; --ink: #ECEDEE; --muted: #A6ABB0; --line: #2C3135; --line-strong: #3A4045;
-      --input: #16191C; --step-bg: #262A2E; --step-line: #3A4045; --step-ink: #ECEDEE; --on-bg: #D8232A; --on-ink: #FFFFFF;
-      --heading: #FF8A8E; --focus: #FF8A8E; --danger: #F2B8B5; --danger-ink: #2A0E0C; --ok: #7CC4A0; --ok-ink: #0E141E; --shadow: none;
     }
   }
 
@@ -135,14 +64,9 @@
     color: var(--band-ink);
     border-bottom: 3px solid var(--band-rule);
   }
-  .top img { height: 42px; width: auto; display: block; flex: none; }
   .wordmark { display: grid; gap: 1px; min-width: 0; }
   .wordmark b { font-family: var(--title-font); font-weight: var(--title-weight); text-transform: var(--title-case); font-size: 19px; line-height: 1.1; letter-spacing: .01em; }
   .wordmark span { font-size: 12.5px; color: var(--band-sub); letter-spacing: .1em; text-transform: uppercase; }
-  .top.center { flex-direction: column; justify-content: center; gap: 4px; text-align: center; }
-  .top.center img { height: 46px; }
-  .top.center .wordmark b { display: none; }
-  .top.center .wordmark span { letter-spacing: .04em; text-transform: none; font-size: 14px; }
 
   main {
     max-width: 560px;
@@ -171,8 +95,6 @@
     text-transform: uppercase;
     color: var(--heading);
   }
-  h2::before { content: ""; width: var(--h2-rule-w); height: var(--h2-rule-h); background: var(--rule); flex: none; }
-  body:not([data-org="ICA"]):not([data-org="FRH"]) h2::before { display: none; }
   .hint { font-size: 13px; color: var(--muted); margin: 6px 0 0; }
 
   .field { display: block; margin-top: 12px; }
@@ -407,9 +329,8 @@
   }
 </style>
 </head>
-<body data-org="">
+<body>
   <header class="top" id="top">
-    <img id="topLogo" alt="" hidden>
     <div class="wordmark"><b id="topName">Business Office</b><span>Purchase Request</span></div>
   </header>
 
@@ -570,13 +491,10 @@
   };
   const NOT_SURE = '?';
   const ORGS = {
-    '': { name: 'Business Office', logo: '', theme: '#2B3440', example: '' },
-    GBC: { name: 'Grace Baptist Church', logo: 'brand/gbc-logo-header.svg', theme: '#233617', center: true,
-      example: 'Paper plates and cups for Harvest Family Night' },
-    ICA: { name: 'Indiana Christian Academy', logo: 'brand/ica-crest.png', theme: '#172233',
-      example: 'Craft supplies for the 3rd grade Thanksgiving project' },
-    FRH: { name: 'Fire Rescue House', logo: 'brand/frh-mark-light.svg', theme: '#1F2326',
-      example: 'Cleaning supplies for the guest rooms' },
+    '': { name: 'Business Office', example: '' },
+    GBC: { name: 'Grace Baptist Church', example: 'Paper plates and cups for Harvest Family Night' },
+    ICA: { name: 'Indiana Christian Academy', example: 'Craft supplies for the 3rd grade Thanksgiving project' },
+    FRH: { name: 'Fire Rescue House', example: 'Cleaning supplies for the guest rooms' },
   };
   const TYPE_HINTS = {
     Reimbursement: 'You paid with your own money and need to be paid back.',
@@ -613,19 +531,13 @@
   }
   function cents(n) { return Math.round(n * 100); }
 
-  // ---- Organization and look --------------------------------------------------
+  // ---- Organization -----------------------------------------------------------
 
   function setOrg(key, keepLines) {
     const changed = key !== org;
     org = key;
-    document.body.dataset.org = key;
     const o = ORGS[key];
-    $('#top').classList.toggle('center', !!o.center);
-    $('#topLogo').hidden = !o.logo;
-    if (o.logo) $('#topLogo').src = o.logo;
-    $('#topLogo').alt = o.logo ? o.name : '';
     $('#topName').textContent = o.name;
-    document.querySelector('meta[name="theme-color"]').setAttribute('content', o.theme);
     $('#description').placeholder = o.example;
     $$('.org').forEach((b) => b.setAttribute('aria-checked', String(b.dataset.org === key)));
     $('#orgs').classList.toggle('picked', !!key);
