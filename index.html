@@ -430,7 +430,7 @@
         <label class="check-row" id="followWrap" hidden>
           <input type="checkbox" id="toFollow">
           <span><strong>The invoice hasn&rsquo;t come yet</strong>
-            <small>Send the request now. When the invoice arrives, reply to your copy of this request with it attached.</small></span>
+            <small>Send the request now, and get the invoice to the business office when it arrives. If you ask for an email copy, you can reply to it with the invoice attached.</small></span>
         </label>
       </section>
 
@@ -440,11 +440,16 @@
           <span>Your name</span>
           <input id="requestedBy" maxlength="60" autocomplete="name" autocapitalize="words" placeholder="First and Last Name">
         </label>
-        <label class="field">
+        <label class="check-row">
+          <input type="checkbox" id="wantCopy">
+          <span><strong>Email me a copy</strong>
+            <small>A copy of this request, with the receipt attached.</small></span>
+        </label>
+        <label class="field" id="emailWrap" hidden>
           <span>Your email</span>
           <input id="email" type="email" maxlength="100" autocomplete="email" autocapitalize="off" spellcheck="false" placeholder="name@example.org">
         </label>
-        <p class="hint">You&rsquo;ll get a copy of the request with the receipt. This phone remembers your name and email.</p>
+        <p class="hint">This phone remembers your name, and your email if you give it.</p>
       </section>
 
       <button type="button" class="link" id="clear">Clear Form</button>
@@ -487,7 +492,7 @@
   // same when a new version is deployed.
   const API_URL = 'https://script.google.com/macros/s/AKfycbwD2Dcrut6h1VFBIcgtIpmLYK_KaPXJyvqmfpswCp3FeLeplsRnqLQLtUfq9TtFzE8A/exec';
   const KEY = {
-    code: 'pr-code', config: 'pr-config', name: 'pr-name', email: 'pr-email', org: 'pr-org',
+    code: 'pr-code', config: 'pr-config', name: 'pr-name', email: 'pr-email', copy: 'pr-copy', org: 'pr-org',
   };
   const NOT_SURE = '?';
   const ORGS = {
@@ -760,9 +765,13 @@
       amount: total,
       lines: split ? lines.map((l) => ({ qb: l.qb, amount: parseMoney(l.amount) })) : [{ qb: lines[0].qb, amount: total }],
       requestedBy: tidyName($('#requestedBy').value),
-      email: $('#email').value.trim(),
+      email: $('#wantCopy').checked ? $('#email').value.trim() : '',
       receiptToFollow: type === 'Invoice' && $('#toFollow').checked,
     };
+  }
+
+  function showEmail() {
+    $('#emailWrap').hidden = !$('#wantCopy').checked;
   }
 
   function resetForm() {
@@ -779,6 +788,11 @@
     pages = [];
     $('#requestedBy').value = store((s) => s.getItem(KEY.name)) || '';
     $('#email').value = store((s) => s.getItem(KEY.email)) || '';
+    // Ask for a copy again if this phone did last time (or, before the
+    // checkbox existed, if it has an email saved).
+    const copy = store((s) => s.getItem(KEY.copy));
+    $('#wantCopy').checked = copy === null ? !!$('#email').value : copy === '1';
+    showEmail();
     fillCardholders(null);
     renderLines();
     renderPages();
@@ -873,7 +887,7 @@
       return [d.type === 'Invoice' ? 'Add the invoice, or check \u201cThe invoice hasn\u2019t come yet\u201d.' : 'Add a picture or PDF of the receipt.', '#receiptCard'];
     }
     if (!d.requestedBy) return ['Enter your name.', '#requestedBy'];
-    if (!/^[^\s@]+@[^\s@]+\.[a-z]{2,}$/i.test(d.email)) return ['Enter your email address.', '#email'];
+    if ($('#wantCopy').checked && !/^[^\s@]+@[^\s@]+\.[a-z]{2,}$/i.test(d.email)) return ['Enter your email address for the copy.', '#email'];
     return null;
   }
 
@@ -933,7 +947,8 @@
       return;
     }
     store((s) => s.setItem(KEY.name, data.requestedBy));
-    store((s) => s.setItem(KEY.email, data.email));
+    if (data.email) store((s) => s.setItem(KEY.email, data.email));
+    store((s) => s.setItem(KEY.copy, data.email ? '1' : '0'));
     await dialog({
       check: true,
       title: 'Request ' + res.id + ' Sent',
@@ -1024,6 +1039,10 @@
     });
   });
   $('#toFollow').addEventListener('change', updateReceipt);
+  $('#wantCopy').addEventListener('change', () => {
+    showEmail();
+    if ($('#wantCopy').checked && !$('#email').value) $('#email').focus();
+  });
 
   $('#submit').addEventListener('click', submit);
   $('#clear').addEventListener('click', async () => {
