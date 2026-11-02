@@ -336,7 +336,7 @@
 
   <div class="loading" id="loading">
     <p id="loadingText">Loading&hellip;</p>
-    <button type="button" class="secondary" id="retry" hidden>Try again</button>
+    <button type="button" class="secondary" id="retry" hidden>Try Again</button>
   </div>
 
   <main id="gate" hidden>
@@ -366,8 +366,8 @@
       <section class="card" id="typeCard">
         <h2>Purchase</h2>
         <div class="chips" id="types" role="radiogroup" aria-label="Type of request">
-          <button type="button" class="chip" role="radio" aria-checked="false" data-type="Reimbursement">Reimburse me</button>
-          <button type="button" class="chip" role="radio" aria-checked="false" data-type="Credit card">Credit card</button>
+          <button type="button" class="chip" role="radio" aria-checked="false" data-type="Reimbursement">Reimburse Me</button>
+          <button type="button" class="chip" role="radio" aria-checked="false" data-type="Credit card">Credit Card</button>
           <button type="button" class="chip" role="radio" aria-checked="false" data-type="Invoice">Invoice</button>
         </div>
         <p class="hint" id="typeHint">Pick one.</p>
@@ -385,8 +385,8 @@
           </div>
           <div id="payeeWrap" hidden>
             <div class="chips two" id="payeeKinds" role="radiogroup" aria-label="Make payable to">
-              <button type="button" class="chip" role="radio" aria-checked="true" data-payee="Vendor">A vendor</button>
-              <button type="button" class="chip" role="radio" aria-checked="false" data-payee="Individual">A person</button>
+              <button type="button" class="chip" role="radio" aria-checked="true" data-payee="Vendor">A Vendor</button>
+              <button type="button" class="chip" role="radio" aria-checked="false" data-payee="Individual">A Person</button>
             </div>
           </div>
           <label class="field">
@@ -413,8 +413,8 @@
         <div class="field" style="margin-bottom:0"><span class="label" id="acctLabel">Ministry account</span></div>
         <div id="lines"></div>
         <p class="left" id="left" hidden></p>
-        <button type="button" class="textbtn" id="split">Split between accounts</button>
-        <button type="button" class="textbtn" id="addLine" hidden>Add another account</button>
+        <button type="button" class="textbtn" id="split">Split Between Accounts</button>
+        <button type="button" class="textbtn" id="addLine" hidden>Add Another Account</button>
       </section>
 
       <section class="card" id="receiptCard">
@@ -422,8 +422,8 @@
         <p class="hint" id="receiptHint">Take a picture of each page of the receipt, or add a PDF from an email.</p>
         <div class="pages" id="pages"></div>
         <div class="adds">
-          <button type="button" class="secondary" id="takePhoto">Take photo</button>
-          <button type="button" class="secondary" id="chooseFile">Choose photo or PDF</button>
+          <button type="button" class="secondary" id="takePhoto">Take Photo</button>
+          <button type="button" class="secondary" id="chooseFile">Choose Photo or PDF</button>
         </div>
         <input type="file" id="cameraInput" accept="image/*" capture="environment" hidden>
         <input type="file" id="fileInput" accept="image/*,application/pdf" multiple hidden>
@@ -447,14 +447,14 @@
         <p class="hint">You&rsquo;ll get a copy of the request with the receipt. This phone remembers your name and email.</p>
       </section>
 
-      <button type="button" class="link" id="clear">Clear form</button>
+      <button type="button" class="link" id="clear">Clear Form</button>
     </div>
   </main>
 
   <div class="bar" id="bar" hidden>
     <div class="bar-inner">
       <div class="total"><span>Amount</span><strong id="barTotal">$0.00</strong></div>
-      <button type="button" class="primary" id="submit">Send request</button>
+      <button type="button" class="primary" id="submit">Send Request</button>
     </div>
   </div>
 
@@ -475,7 +475,7 @@
 
   <div class="overlay picker" id="picker" hidden>
     <div class="picker-sheet" role="dialog" aria-modal="true" aria-labelledby="pickerTitle">
-      <div class="picker-head"><b id="pickerTitle">Pick an account</b><button type="button" class="x" id="pickerClose" aria-label="Close">&times;</button></div>
+      <div class="picker-head"><b id="pickerTitle">Pick an Account</b><button type="button" class="x" id="pickerClose" aria-label="Close">&times;</button></div>
       <div class="picker-search"><input type="search" id="pickerSearch" placeholder="Search by name or number" autocomplete="off" aria-label="Search accounts"></div>
       <div class="picker-list" id="pickerList"></div>
     </div>
@@ -609,7 +609,7 @@
     box.innerHTML = lines.map((l, i) => {
       const a = l.qb === NOT_SURE ? null : findAccount(l.qb);
       const name = l.qb === NOT_SURE ? 'Not sure: the business office will choose'
-        : a ? (a.number ? a.number + ' ' : '') + a.name : 'Pick an account';
+        : a ? (a.number ? a.number + ' ' : '') + a.name : 'Pick an Account';
       const group = a ? (a.section === 'Designated funds' ? 'Designated fund' : a.group.replace(/^\d+\s*/, '')) : '';
       return '<div class="line' + (split ? ' split' : '') + '">' +
         '<button type="button" class="acct' + (l.qb ? '' : ' empty') + '" data-pick="' + i + '" aria-label="Account ' + (i + 1) + ': ' + esc(name) + '">' +
@@ -704,7 +704,7 @@
 
   function updateReceipt() {
     const n = pages.length;
-    $('#takePhoto').textContent = n ? 'Take another photo' : 'Take photo';
+    $('#takePhoto').textContent = n ? 'Take Another Photo' : 'Take Photo';
     $('#receiptHint').textContent = $('#toFollow').checked && !n
       ? 'You can send this without the invoice.'
       : type === 'Invoice' ? 'Take a picture of each page of the invoice, or add the PDF.'
@@ -894,14 +894,14 @@
       return (a.number ? a.number + ' ' : '') + a.name + (split ? ' ' + dollars(l.amount) : '');
     });
     const ok = await dialog({
-      title: 'Send this request?',
+      title: 'Send This Request?',
       body: '<span class="big">' + dollars(data.amount) + '</span>' + esc(data.payTo) + ' &middot; ' + esc(dateLabel(data.date)) +
         '<br>' + esc(ORGS[org].name) + ' &middot; ' + esc(data.type) +
         (data.cardholder ? ': ' + esc(data.cardholder) : '') +
         '<br>' + accts.map(esc).join('<br>') +
         (data.receiptToFollow && !pages.length ? '<span class="warn">The invoice will follow.</span>' : ''),
       ok: 'Send',
-      cancel: 'Go back',
+      cancel: 'Go Back',
     });
     if (ok) send(data);
   }
@@ -913,7 +913,7 @@
     try {
       let pdf = '';
       if (pages.length) {
-        dialog({ busy: true, title: 'Getting the receipt ready\u2026', body: '' });
+        dialog({ busy: true, title: 'Getting the Receipt Ready\u2026', body: '' });
         pdf = await Receipt.buildPdf(pages);
       }
       dialog({ busy: true, title: 'Sending\u2026', body: 'This takes a few seconds.' });
@@ -936,7 +936,7 @@
     store((s) => s.setItem(KEY.email, data.email));
     await dialog({
       check: true,
-      title: 'Request ' + res.id + ' sent',
+      title: 'Request ' + res.id + ' Sent',
       body: '<span class="big">' + dollars(data.amount) + '</span>' + esc(data.payTo) +
         (res.notified.length ? '<br>Sent to ' + esc(names(res.notified)) + '.' : '') +
         (res.copySent ? '<br>A copy is on its way to ' + esc(data.email) + '.' : ''),
@@ -1027,7 +1027,7 @@
 
   $('#submit').addEventListener('click', submit);
   $('#clear').addEventListener('click', async () => {
-    const ok = await dialog({ title: 'Clear the form?', body: 'This erases everything on this page, including the receipt pictures.', ok: 'Clear', cancel: 'Cancel' });
+    const ok = await dialog({ title: 'Clear the Form?', body: 'This erases everything on this page, including the receipt pictures.', ok: 'Clear', cancel: 'Cancel' });
     if (ok) resetForm();
   });
 

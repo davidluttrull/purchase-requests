@@ -192,11 +192,11 @@
   <div class="loading" id="loading">Loading&hellip;</div>
 
   <form class="panel gate" id="gate" hidden>
-    <h2 style="margin:0 0 4px">Sign in</h2>
+    <h2 style="margin:0 0 4px">Sign In</h2>
     <p style="margin:0;color:var(--muted)">This computer remembers your name and the office code.</p>
     <label class="f">Your name<input id="gName" autocomplete="name" maxlength="60"></label>
     <label class="f">Office code<input id="gCode" type="password" inputmode="numeric" autocomplete="off" maxlength="20"></label>
-    <button type="submit" class="btn primary" id="gGo">Sign in</button>
+    <button type="submit" class="btn primary" id="gGo">Sign In</button>
   </form>
 
   <section id="requestsView" hidden>
@@ -222,22 +222,22 @@
         <p class="help">The accounts staff can pick for each organization. Uncheck <b>Active</b> to hide one from staff; past requests keep it, and this page can still use it. The QuickBooks name is what to match when entering the bill.</p>
         <div class="orgtabs" id="acctOrgs"></div>
         <div class="tablewrap"><table class="edit" id="acctTable"></table></div>
-        <div class="rowbtns"><button type="button" class="btn" id="addAcct">Add account</button><span class="spacer"></span>
-          <button type="button" class="btn primary" id="saveAccts" disabled>Save accounts</button></div>
+        <div class="rowbtns"><button type="button" class="btn" id="addAcct">Add Account</button><span class="spacer"></span>
+          <button type="button" class="btn primary" id="saveAccts" disabled>Save Accounts</button></div>
       </div>
       <div class="panel">
         <h2>Cardholders</h2>
         <p class="help">The names staff pick for a credit card purchase. Staff can also type a name that isn&rsquo;t listed.</p>
         <div class="tablewrap"><table class="edit" id="cardTable"></table></div>
-        <div class="rowbtns"><button type="button" class="btn" id="addCard">Add cardholder</button><span class="spacer"></span>
-          <button type="button" class="btn primary" id="saveCards" disabled>Save cardholders</button></div>
+        <div class="rowbtns"><button type="button" class="btn" id="addCard">Add Cardholder</button><span class="spacer"></span>
+          <button type="button" class="btn primary" id="saveCards" disabled>Save Cardholders</button></div>
       </div>
       <div class="panel">
-        <h2>Who gets new requests</h2>
+        <h2>Who Gets New Requests</h2>
         <p class="help">Each of these addresses is emailed about every new request, with a link to it here.</p>
         <div class="tablewrap"><table class="edit" id="mailTable"></table></div>
-        <div class="rowbtns"><button type="button" class="btn" id="addMail">Add email</button><span class="spacer"></span>
-          <button type="button" class="btn primary" id="saveMail" disabled>Save emails</button></div>
+        <div class="rowbtns"><button type="button" class="btn" id="addMail">Add Email</button><span class="spacer"></span>
+          <button type="button" class="btn primary" id="saveMail" disabled>Save Emails</button></div>
       </div>
     </div>
   </section>
@@ -494,7 +494,7 @@
     const files = String(r.files || '').split('\n').filter(Boolean);
     const actions = [];
     if (r.status === 'New') actions.push('<button type="button" class="btn primary" data-act="approve">Approve</button>');
-    if (r.status === 'New' || r.status === 'Approved') actions.push('<button type="button" class="btn' + (r.status === 'Approved' ? ' primary' : '') + '" data-act="paid">Mark paid</button>');
+    if (r.status === 'New' || r.status === 'Approved') actions.push('<button type="button" class="btn' + (r.status === 'Approved' ? ' primary' : '') + '" data-act="paid">Mark Paid</button>');
     if (r.status !== 'New') actions.push('<button type="button" class="btn" data-act="reopen">Back to New</button>');
     if (r.status !== 'Void') actions.push('<button type="button" class="btn danger" data-act="void">Void</button>');
     actions.push('<button type="button" class="btn" data-act="print">Print</button>');
@@ -518,7 +518,7 @@
         '<a href="' + esc(files[fileShown]) + '" target="_blank" rel="noopener">Open in Drive &#8599;</a></div>' +
         '<iframe src="https://drive.google.com/file/d/' + esc(fileId(files[fileShown])) + '/preview" title="Receipt" allow="autoplay"></iframe>'
         : '<div class="nofile">' + (r.receipt === 'To follow' ? 'The invoice is to follow.' : 'No receipt attached.') + '</div>') +
-      '<div class="rowbtns"><button type="button" class="btn" data-act="attach">' + (files.length ? 'Add another file' : 'Attach receipt or invoice') + '</button></div>' +
+      '<div class="rowbtns"><button type="button" class="btn" data-act="attach">' + (files.length ? 'Add Another File' : 'Attach Receipt or Invoice') + '</button></div>' +
       '<p class="meta" style="margin:8px 0 0">The preview needs this browser signed in to a Google account that can open the Business Office drive.</p></div>' +
       '<div><div class="panel"><h3>Request</h3><div class="grid">' +
       '<label class="f">Organization<select id="d-org">' + Object.keys(ORG_NAMES).map((k) => '<option value="' + k + '"' + (r.org === k ? ' selected' : '') + '>' + k + ': ' + ORG_NAMES[k] + '</option>').join('') + '</select></label>' +
@@ -530,19 +530,19 @@
       '<label class="f wide">Description<textarea id="d-description">' + esc(r.description) + '</textarea></label>' +
       '<label class="f">Amount<input id="d-amount" inputmode="decimal" value="' + esc(Number(r.amount).toFixed(2)) + '"></label>' +
       '<div class="f wide">Accounts<div class="lines" id="d-lines"></div><div style="display:flex;gap:12px;align-items:center">' +
-      '<button type="button" class="linkbtn" data-act="addline">Split / add an account</button><span class="lsum" id="d-lsum"></span></div></div>' +
+      '<button type="button" class="linkbtn" data-act="addline">Split / Add an Account</button><span class="lsum" id="d-lsum"></span></div></div>' +
       '<label class="f">Requested by<input id="d-requestedBy" value="' + esc(r.requestedBy) + '"></label>' +
       '<label class="f">Email<input id="d-email" type="email" value="' + esc(r.email) + '"></label>' +
       '</div></div>' +
-      '<div class="panel"><h3>Business office</h3><div class="grid">' +
+      '<div class="panel"><h3>Business Office</h3><div class="grid">' +
       '<label class="f">Status<select id="d-status">' + ['New', 'Approved', 'Paid', 'Void'].map((s) => '<option' + (r.status === s ? ' selected' : '') + '>' + s + '</option>').join('') + '</select></label>' +
       '<label class="f">Approved by<input value="' + esc(r.approvedBy ? r.approvedBy + ', ' + shortDate(r.approvedOn) : '') + '" disabled></label>' +
       '<label class="f">Date issued<input type="date" id="d-issued" value="' + esc(r.issued || '') + '"></label>' +
       '<label class="f">Check #<input id="d-checkNo" value="' + esc(r.checkNo) + '"></label>' +
       '<label class="f wide">Office notes<textarea id="d-notes" placeholder="Only the business office sees these.">' + esc(r.notes) + '</textarea></label>' +
       '</div>' +
-      '<div class="savebar"><button type="button" class="btn primary" data-act="save" id="d-save" disabled>Save changes</button>' +
-      '<button type="button" class="btn" data-act="undo" id="d-undo" disabled>Undo changes</button><span class="note" id="d-note"></span></div></div></div></div>';
+      '<div class="savebar"><button type="button" class="btn primary" data-act="save" id="d-save" disabled>Save Changes</button>' +
+      '<button type="button" class="btn" data-act="undo" id="d-undo" disabled>Undo Changes</button><span class="note" id="d-note"></span></div></div></div></div>';
 
     draftLines = (r.lines.length ? r.lines : [{ qb: '', amount: r.amount }]).map((l) => ({ qb: l.qb, amount: Number(l.amount).toFixed(2) }));
     renderLinesEditor();
@@ -647,11 +647,11 @@
   async function markPaid() {
     const card = $('#d-type').value === 'Credit card';
     const v = await dialog({
-      title: 'Mark ' + current.id + ' paid',
+      title: 'Mark ' + current.id + ' Paid',
       body: card ? 'For a credit card purchase, use the date it was entered or reconciled. The check number can stay blank.' : '',
       fields: [{ id: 'issued', label: 'Date issued', type: 'date', value: $('#d-issued').value || today() },
         { id: 'checkNo', label: 'Check #' + (card ? ' (optional)' : ''), value: $('#d-checkNo').value }],
-      ok: 'Mark paid',
+      ok: 'Mark Paid',
     });
     if (!v) return;
     if (!v.issued) return toast('Enter the date issued.');
@@ -832,7 +832,7 @@
       '<button type="button" class="chip" data-acctorg="' + k + '" aria-pressed="' + (k === acctOrg) + '">' + k +
       '<span class="n">' + editAccounts.filter((a) => a.org === k).length + '</span></button>').join('');
     const rows = editAccounts.map((a, i) => [a, i]).filter(([a]) => a.org === acctOrg);
-    $('#acctTable').innerHTML = '<thead><tr><th class="chk">Active</th><th>Section</th><th>Group</th><th class="num">Number</th><th>Name</th><th>QuickBooks name</th><th></th></tr></thead><tbody>' +
+    $('#acctTable').innerHTML = '<thead><tr><th class="chk">Active</th><th>Section</th><th>Group</th><th class="num">Number</th><th>Name</th><th>QuickBooks Name</th><th></th></tr></thead><tbody>' +
       rows.map(([a, i]) => '<tr class="' + (a.active ? '' : 'off') + '">' +
         '<td class="chk"><input type="checkbox" data-a="' + i + '" data-k="active"' + (a.active ? ' checked' : '') + ' aria-label="Active"></td>' +
         '<td><select data-a="' + i + '" data-k="section" aria-label="Section">' + SECTIONS.map((s) => '<option' + (a.section === s ? ' selected' : '') + '>' + s + '</option>').join('') + '</select></td>' +
@@ -909,7 +909,7 @@
     if (act === 'paid') markPaid();
     if (act === 'reopen') save({ status: 'New' }, current.id + ' is back to New.');
     if (act === 'void') {
-      dialog({ title: 'Void ' + current.id + '?', body: 'It stays on the sheet, marked Void, and drops out of the open list.', ok: 'Void it' })
+      dialog({ title: 'Void ' + current.id + '?', body: 'It stays on the sheet, marked Void, and drops out of the open list.', ok: 'Void It' })
         .then((ok) => { if (ok) save({ status: 'Void' }, current.id + ' voided.'); });
     }
     if (act === 'print') printCover();

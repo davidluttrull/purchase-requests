@@ -408,11 +408,11 @@ const Receipt = (() => {
     }
     const src = await loadImage(file);
     const root = el(`<div class="rx" role="dialog" aria-modal="true" aria-label="Adjust the receipt">
-      <div class="rx-top"><b>Fit the corners to the receipt</b><button type="button" class="rx-x" aria-label="Cancel">&times;</button></div>
+      <div class="rx-top"><b>Fit the Corners to the Receipt</b><button type="button" class="rx-x" aria-label="Cancel">&times;</button></div>
       <div class="rx-stage"><canvas></canvas><svg><polygon fill="rgba(80,160,255,.18)" stroke="#4DA3FF" stroke-width="2"/></svg>
         <canvas class="rx-loupe" width="232" height="232" hidden></canvas></div>
       <p class="rx-msg" aria-live="polite"></p>
-      <div class="rx-bar"><button type="button" data-act="whole">Whole photo</button><button type="button" data-act="find">Find edges</button>
+      <div class="rx-bar"><button type="button" data-act="whole">Whole Photo</button><button type="button" data-act="find">Find Edges</button>
         <button type="button" class="rx-go" data-act="next">Next</button></div>
     </div>`);
     document.body.appendChild(root);
@@ -567,12 +567,12 @@ const Receipt = (() => {
     let turns = 0;
 
     const step = el(`<div class="rx" role="dialog" aria-modal="true" aria-label="Check the page">
-      <div class="rx-top"><b>Check the page</b><button type="button" class="rx-x" aria-label="Back">&larr;</button></div>
+      <div class="rx-top"><b>Check the Page</b><button type="button" class="rx-x" aria-label="Back">&larr;</button></div>
       <div class="rx-preview"><img alt="The straightened receipt"></div>
       <p class="rx-msg">Make sure you can read the total and the date.</p>
       <div class="rx-bar"><button type="button" data-mode="scan">Scan</button><button type="button" data-mode="color">Color</button>
         <button type="button" data-act="rotate" aria-label="Rotate a quarter turn">&#8635; Rotate</button>
-        <button type="button" class="rx-go" data-act="use">Use this page</button></div>
+        <button type="button" class="rx-go" data-act="use">Use This Page</button></div>
     </div>`);
     document.body.appendChild(step);
     const img = step.querySelector('img');
