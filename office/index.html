@@ -844,15 +844,30 @@
    * A cover sheet laid out like the paper Purchase Request Form, from the saved
    * request, followed by each page of its receipt.
    */
-  async function printCover() {
+  async function printCover(fromLink) {
     const r = current;
-    if (dirty()) toast('Printing the saved version. Save your changes first to include them.');
-    // Open the window while the click still counts: one opened after waiting for
-    // the receipt would be blocked as a pop-up.
-    const w = window.open('', '_blank');
-    if (!w) return toast('The browser blocked the print window. Allow pop-ups for this page and try again.');
-    w.document.write('<!DOCTYPE html><title>' + esc(r.id) + '</title><p style="font:16px system-ui,sans-serif;margin:40px">' +
-      'Getting the receipt for ' + esc(r.id) + '&hellip;</p>');
+    let w;
+    if (fromLink) {
+      // The email's Print link has no click to open a window with, so the
+      // sheet goes in a hidden frame on this page and prints from there.
+      const old = $('#printFrame');
+      if (old) old.remove();
+      const frame = document.createElement('iframe');
+      frame.id = 'printFrame';
+      frame.title = 'Print';
+      frame.style.cssText = 'position:absolute;width:0;height:0;border:0;visibility:hidden';
+      document.body.appendChild(frame);
+      w = frame.contentWindow;
+      toast('Getting ' + r.id + ' ready to print\u2026');
+    } else {
+      if (dirty()) toast('Printing the saved version. Save your changes first to include them.');
+      // Open the window while the click still counts: one opened after waiting for
+      // the receipt would be blocked as a pop-up.
+      w = window.open('', '_blank');
+      if (!w) return toast('The browser blocked the print window. Allow pop-ups for this page and try again.');
+      w.document.write('<!DOCTYPE html><title>' + esc(r.id) + '</title><p style="font:16px system-ui,sans-serif;margin:40px">' +
+        'Getting the receipt for ' + esc(r.id) + '&hellip;</p>');
+    }
     const receipt = await receiptPages(r);
     if (w.closed) return;
     // A labeled box. Empty boxes are left blank to fill in by hand.
@@ -916,7 +931,7 @@
       (r.notes ? '<div style="margin-top:10px">' + field('Notes', r.notes) + '</div>' : '') + '</section>' +
       '<footer><span>' + esc(ORG_NAMES[r.org]) + '</span><span>Printed ' + esc(shortDate(today())) + '</span></footer>' +
       receipt + '</div>' +
-      '<script>window.onload=function(){setTimeout(function(){window.print()},300)}<\/script></body></html>';
+      '<script>window.onload=function(){setTimeout(function(){window.focus();window.print()},300)}<\/script></body></html>';
     w.document.open();
     w.document.write(html);
     w.document.close();
@@ -1195,10 +1210,18 @@
   window.addEventListener('beforeunload', (e) => {
     if (dirty() || saving || settingsDirty.accounts || settingsDirty.cards || settingsDirty.mail) { e.preventDefault(); e.returnValue = ''; }
   });
-  window.addEventListener('hashchange', () => {
-    const id = location.hash.slice(1);
-    if (DATA && id && (!current || current.id !== id)) openRequest(id);
-  });
+  // "#PR-1001" opens a request. "#PR-1001/print", the Print button in the
+  // office's email, opens it and prints it with its receipt.
+  function openFromHash() {
+    const m = /^#([^/]+)(\/print)?$/.exec(location.hash);
+    if (!m) return;
+    if (!current || current.id !== m[1]) openRequest(m[1]);
+    if (!current || current.id !== m[1]) return;
+    // A reload shouldn't print it again.
+    history.replaceState(null, '', '#' + m[1]);
+    if (m[2]) printCover(true);
+  }
+  window.addEventListener('hashchange', () => { if (DATA) openFromHash(); });
 
   // ---- Start ------------------------------------------------------------------------------
 
@@ -1238,8 +1261,7 @@
     $('#who').hidden = false;
     $('#whoName').textContent = store((s) => s.getItem(KEY.name));
     showView('requests');
-    const id = location.hash.slice(1);
-    if (id) openRequest(id);
+    openFromHash();
   }
 
   $('#gate').addEventListener('submit', async (e) => {
