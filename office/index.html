@@ -476,6 +476,7 @@
     fileShown = 0;
     if (location.hash !== '#' + id) history.replaceState(null, '', '#' + id);
     renderDetail();
+    if (String(r.files || '').trim()) { fetchReceipt(r); Receipt.warmPrint(); }
     $$('.item').forEach((b) => b.setAttribute('aria-current', String(b.dataset.id === id)));
     $('#detail').classList.remove('closed');
     $('#detail').scrollTop = 0;
@@ -759,12 +760,27 @@
     w.document.close();
   }
 
+  // The receipt files for printing, fetched as soon as a request is opened so
+  // Print doesn't wait the few seconds the script takes. Only the last one is
+  // kept, keyed by the file list so a newly attached file is fetched again.
+  let receiptFetch = null;
+  function fetchReceipt(r) {
+    const key = r.id + '\n' + r.files;
+    if (!receiptFetch || receiptFetch.key !== key) {
+      const promise = api({ action: 'officeReceipt', id: r.id });
+      receiptFetch = { key, promise };
+      // A failed fetch isn't kept, so Print tries again.
+      promise.catch(() => { if (receiptFetch && receiptFetch.promise === promise) receiptFetch = null; });
+    }
+    return receiptFetch.promise;
+  }
+
   /** The receipt's pages as images for the print window, or a note saying why there are none. */
   async function receiptPages(r) {
     const note = (text) => '<p class="note">' + esc(text) + '</p>';
     if (!String(r.files || '').trim()) return note(r.receipt === 'To follow' ? 'The invoice is to follow.' : 'No receipt is attached.');
     try {
-      const res = await api({ action: 'officeReceipt', id: r.id });
+      const res = await fetchReceipt(r);
       const pages = [];
       for (const f of res.files) {
         if (/pdf/i.test(f.type)) pages.push.apply(pages, await Receipt.pageImages(f.data));

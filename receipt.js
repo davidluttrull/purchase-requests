@@ -10,6 +10,7 @@
  *   Receipt.warm()          starts loading the edge finder early.
  *   Receipt.pageImages(b64) each page of a PDF as a JPEG data URL, for
  *                           printing (the office page's cover sheet).
+ *   Receipt.warmPrint()     starts loading the PDF reader pageImages uses.
  *
  * Finding the receipt's edges uses OpenCV (about 10 MB, downloaded the first
  * time a photo is added and cached by the browser after that). Everything
@@ -664,7 +665,11 @@ const Receipt = (() => {
       const ctx = c.getContext('2d');
       ctx.fillStyle = '#ffffff';
       ctx.fillRect(0, 0, c.width, c.height);
-      await page.render({ canvasContext: ctx, viewport: view }).promise;
+      // The print intent draws the page in one go. The default waits for a
+      // screen refresh between steps, and a tab in the background gets none:
+      // Print opens a new tab, so the office page drawing this is in the
+      // background, and the drawing stalled for half a minute or more.
+      await page.render({ canvasContext: ctx, viewport: view, intent: 'print' }).promise;
       out.push(c.toDataURL('image/jpeg', 0.88));
     }
     doc.destroy();
@@ -677,6 +682,7 @@ const Receipt = (() => {
     pdfInfo: pdfInfo,
     buildPdf: buildPdf,
     warm: () => { opencv().catch(() => {}); pdfLib().catch(() => {}); },
+    warmPrint: () => { pdfjs().catch(() => {}); },
     // For testing in the browser console.
     _test: { loadImage, findCorners, warp, scanLook, order },
   };
