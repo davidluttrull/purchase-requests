@@ -389,6 +389,8 @@
   async function load() {
     const res = await api({ action: 'officeLoad' });
     DATA = res;
+    // Changes still on their way to the sheet stay on the page.
+    Object.keys(queues).forEach((id) => { if (queues[id].n) replaceRequest(queues[id].local); });
     $('#banner').hidden = !DATA.testMode && DATA.folderSet;
     $('#banner').innerHTML = [
       DATA.testMode ? '<b>Test mode:</b> every email goes to ' + esc(DATA.testMode) + '. Clear &ldquo;Test mode&rdquo; on the Settings tab of the Sheet to go live.' : '',
@@ -478,6 +480,12 @@
     fileShown = 0;
     if (location.hash !== '#' + id) history.replaceState(null, '', '#' + id);
     renderDetail();
+    if (stash[id]) {
+      const edits = stash[id];
+      delete stash[id];
+      restore(edits, edits.lines.map((l) => ({ qb: l.qb, amount: Number(l.amount).toFixed(2) })));
+      toast('Your changes to ' + id + ' didn\u2019t save. They\u2019re back on the page to fix and save again.');
+    }
     if (String(r.files || '').trim()) { fetchReceipt(r); Receipt.warmPrint(); }
     $$('.item').forEach((b) => b.setAttribute('aria-current', String(b.dataset.id === id)));
     $('#detail').classList.remove('closed');
@@ -502,18 +510,13 @@
     if (r.status !== 'Void') actions.push('<button type="button" class="btn danger" data-act="void">Void</button>');
     actions.push('<button type="button" class="btn" data-act="print">Print</button>');
 
-    const meta = ['Sent ' + stamp(r.submitted) + ' by ' + esc(r.requestedBy)];
-    if (r.approvedBy) meta.push('Approved by ' + esc(r.approvedBy) + ' on ' + shortDate(r.approvedOn));
-    if (r.status === 'Paid') meta.push('Paid ' + shortDate(r.issued) + (r.checkNo ? ', check #' + esc(r.checkNo) : ''));
-    if (r.changedBy) meta.push('Last changed by ' + esc(r.changedBy) + ' ' + stamp(r.changedAt));
-
     $('#detail').innerHTML =
       '<div class="d-head"><button type="button" class="btn back" data-act="close">&larr; List</button>' +
       '<h2>' + esc(r.id) + '</h2><span class="badge org-' + esc(r.org) + '">' + esc(r.org) + '</span>' +
       '<span class="badge st-' + esc(r.status) + '">' + esc(r.status) + '</span>' +
       flags(r).map((f) => '<span class="badge flag">' + esc(f) + '</span>').join('') +
       '<div class="actions">' + actions.join('') + '</div></div>' +
-      '<p class="meta">' + meta.join(' &middot; ') + '</p>' +
+      '<p class="meta" id="d-meta">' + metaHtml(r) + '</p>' +
       '<div class="cols">' +
       '<div class="panel receipt"><h3>Receipt</h3>' +
       (files.length ? '<div class="files">' + files.map((u, i) =>
@@ -552,6 +555,14 @@
     updateTypeFields();
     snapshot = JSON.stringify(collect());
     updateDirty();
+  }
+
+  function metaHtml(r) {
+    const meta = ['Sent ' + stamp(r.submitted) + ' by ' + esc(r.requestedBy)];
+    if (r.approvedBy) meta.push('Approved by ' + esc(r.approvedBy) + ' on ' + shortDate(r.approvedOn));
+    if (r.status === 'Paid') meta.push('Paid ' + shortDate(r.issued) + (r.checkNo ? ', check #' + esc(r.checkNo) : ''));
+    if (r.changedBy) meta.push('Last changed by ' + esc(r.changedBy) + ' ' + stamp(r.changedAt));
+    return meta.join(' &middot; ');
   }
 
   let draftLines = [];
@@ -616,30 +627,142 @@
     const d = dirty();
     $('#d-save').disabled = !d;
     $('#d-undo').disabled = !d;
-    $('#d-note').textContent = d ? 'Unsaved changes' : '';
+    const q = queues[current.id];
+    $('#d-note').textContent = d ? 'Unsaved changes' : q && q.n ? 'Saving to the sheet\u2026' : '';
   }
 
-  async function save(overrides, okMsg) {
+  // Saving runs in the background. The page shows the change at once, and the
+  // sheet catches up in the few seconds the script takes. Saves to the same
+  // request go one at a time, each sending the version the one before it got
+  // back. If one fails, the ones after it are dropped, the request goes back
+  // to what the sheet has, and the changes are put back on the page to fix.
+  const queues = {};   // id -> {tail, n, version, sheet: the sheet's copy, local: what the page shows, body, dead}
+  const stash = {};    // id -> changes from a failed save, put back when the request is opened
+  let saving = 0;
+
+  function save(overrides, okMsg) {
     const body = collect();
     Object.assign(body.form, overrides || {});
-    if (body.lines.some((l) => !l.qb)) return toast('Pick an account for each line.');
-    const btns = $$('#detail .btn');
-    btns.forEach((b) => { b.disabled = true; });
-    try {
-      const res = await api({ action: 'officeSave', id: current.id, version: current.version, form: body.form, lines: body.lines });
-      replaceRequest(res.request);
-      if (res.status === 'conflict') {
-        toast('Someone else changed ' + current.id + ' while you were looking at it. It now shows their changes; make yours again.');
-      } else {
-        toast(res.unchanged ? 'Nothing to save.' : okMsg || 'Saved.', true);
-      }
-      openRequest(res.request.id);
-      renderList();
-    } catch (err) {
-      fail(err);
-      btns.forEach((b) => { b.disabled = false; });
-      updateDirty();
+    if (JSON.stringify(body) === snapshot) return toast('Nothing to save.', true);
+    const problem = checkEdits(body);
+    if (problem) return toast(problem);
+    const id = current.id;
+    const q = queues[id] || (queues[id] = { tail: Promise.resolve(), n: 0 });
+    if (!q.n) {
+      const sheet = DATA.requests.find((r) => r.id === id);
+      Object.assign(q, { version: sheet.version, sheet: sheet, dead: false });
     }
+    q.n++;
+    saving++;
+    q.local = applyEdits(current, body);
+    q.body = body;
+    replaceRequest(q.local);
+    const top = $('#detail').scrollTop;
+    current = JSON.parse(JSON.stringify(q.local));
+    renderDetail();
+    $('#detail').scrollTop = top;
+    renderList();
+    toast(okMsg || 'Saved.', true);
+    q.tail = q.tail.then(() => sendSave(id, q, body));
+  }
+
+  async function sendSave(id, q, body) {
+    try {
+      if (q.dead) return;
+      const res = await api({ action: 'officeSave', id: id, version: q.version, form: body.form, lines: body.lines });
+      q.version = res.request.version;
+      q.sheet = res.request;
+      if (res.status === 'conflict') {
+        q.dead = true;
+        showSheetCopy(id, res.request);
+        toast('Someone else changed ' + id + ' while you were looking at it. It now shows their changes; make yours again.');
+      } else if (q.n === 1) {
+        showSheetCopy(id, res.request);
+      }
+    } catch (err) {
+      if (!q.dead) {
+        q.dead = true;
+        const here = current && current.id === id;
+        showSheetCopy(id, q.sheet, q.body);
+        if (err.message !== 'silent') {
+          toast('Couldn\u2019t save ' + id + ': ' + err.message + (here ? ' Your changes are back on the page to fix and save again.' : ' Open it to fix your changes and save again.'));
+        }
+      }
+    } finally {
+      q.n--;
+      saving--;
+      if (current && current.id === id && $('#d-save')) updateDirty();
+    }
+  }
+
+  /**
+   * Shows the sheet's copy of a request once its saves are done, keeping
+   * anything typed since. edits puts a failed save's changes back on the page.
+   */
+  function showSheetCopy(id, r, edits) {
+    replaceRequest(r);
+    renderList();
+    if (!current || current.id !== id) {
+      if (edits) stash[id] = edits;
+      return;
+    }
+    const typed = edits || (dirty() ? collect() : null);
+    const lines = edits ? edits.lines.map((l) => ({ qb: l.qb, amount: Number(l.amount).toFixed(2) })) : draftLines;
+    if (!typed && viewKey(current) === viewKey(r)) {
+      // Nothing on the page changes: skip redrawing, which would reload the receipt preview.
+      current = JSON.parse(JSON.stringify(r));
+      $('#d-meta').innerHTML = metaHtml(r);
+      return;
+    }
+    const top = $('#detail').scrollTop;
+    current = JSON.parse(JSON.stringify(r));
+    renderDetail();
+    if (typed) restore(typed, lines);
+    $('#detail').scrollTop = top;
+  }
+
+  /** What the page shows for a request, to tell whether the sheet's copy differs. */
+  function viewKey(r) {
+    return JSON.stringify(['org', 'type', 'date', 'cardholder', 'payeeType', 'payTo', 'description', 'requestedBy', 'email', 'status',
+      'issued', 'checkNo', 'notes', 'approvedBy', 'approvedOn', 'files'].map((k) => String(r[k] || ''))
+      .concat(Number(r.amount), (r.lines || []).map((l) => l.qb + ' ' + Number(l.amount))));
+  }
+
+  /** The request as it will be once body is saved, shown before the sheet answers. Same rules as the script. */
+  function applyEdits(r, body) {
+    const f = body.form;
+    const out = Object.assign(JSON.parse(JSON.stringify(r)), f);
+    if (f.type !== 'Credit card') out.cardholder = '';
+    out.lines = body.lines.map((l) => {
+      const a = DATA.accounts.find((x) => x.org === f.org && x.qb === l.qb);
+      return { qb: l.qb, number: a ? a.number : '', name: l.qb === NOT_SURE ? 'Account needed' : a ? a.name : l.qb, amount: l.amount };
+    });
+    if ((f.status === 'Approved' || f.status === 'Paid') && !out.approvedBy) {
+      out.approvedBy = store((s) => s.getItem(KEY.name)) || '';
+      out.approvedOn = today();
+    }
+    if (f.status === 'New') { out.approvedBy = ''; out.approvedOn = ''; }
+    out.changedBy = store((s) => s.getItem(KEY.name)) || '';
+    out.changedAt = new Date().toISOString();
+    return out;
+  }
+
+  /** The script's checks, made here first so a change isn't shown and then taken back. */
+  function checkEdits(body) {
+    const f = body.form;
+    if (!f.date) return 'Enter the date.';
+    if (f.type === 'Credit card' && !f.cardholder) return 'Pick whose card was used.';
+    if (!f.payTo) return 'Enter who to pay.';
+    if (!f.description) return 'Describe what was bought and what it\u2019s for.';
+    if (!(f.amount > 0)) return 'Enter the amount.';
+    if (body.lines.some((l) => !l.qb)) return 'Pick an account for each line.';
+    if (body.lines.some((l) => !(l.amount > 0))) return 'Enter an amount for each account.';
+    const cents = body.lines.reduce((n, l) => n + Math.round(l.amount * 100), 0);
+    if (cents !== Math.round(f.amount * 100)) return 'The accounts add up to ' + dollars(cents / 100) + ', not ' + dollars(f.amount) + '.';
+    if (!f.requestedBy) return 'Enter who requested it.';
+    if (f.email && !/^[^\s@]+@[^\s@]+\.[a-z]{2,}$/i.test(f.email)) return 'Check the email address.';
+    if (f.status === 'Paid' && !f.issued) return 'Enter the date the payment was issued.';
+    return '';
   }
 
   function replaceRequest(r) {
@@ -676,11 +799,16 @@
       }
       if (!items.length) return;
       toast('Uploading\u2026', true);
+      const id = current.id;
       const pdf = await Receipt.buildPdf(items);
-      const res = await api({ action: 'officeAttach', id: current.id, receipt: { pdf: pdf } });
+      // Saves still on their way go first, so the versions stay in step.
+      if (queues[id]) await queues[id].tail;
+      const res = await api({ action: 'officeAttach', id: id, receipt: { pdf: pdf } });
       // Keep any edits in progress: take the new file list and version only.
       const r = res.request;
+      if (queues[id]) { queues[id].version = r.version; queues[id].sheet = r; }
       replaceRequest(r);
+      if (!current || current.id !== id) { renderList(); toast('Receipt attached to ' + id + '.', true); return; }
       const edits = dirty() ? collect() : null;
       const lines = draftLines;
       current = JSON.parse(JSON.stringify(r));
@@ -1061,7 +1189,7 @@
   $('#saveMail').addEventListener('click', () => saveSettings('mail'));
 
   window.addEventListener('beforeunload', (e) => {
-    if (dirty() || settingsDirty.accounts || settingsDirty.cards || settingsDirty.mail) { e.preventDefault(); e.returnValue = ''; }
+    if (dirty() || saving || settingsDirty.accounts || settingsDirty.cards || settingsDirty.mail) { e.preventDefault(); e.returnValue = ''; }
   });
   window.addEventListener('hashchange', () => {
     const id = location.hash.slice(1);
