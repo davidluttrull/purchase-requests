@@ -627,9 +627,11 @@
     const d = dirty();
     $('#d-save').disabled = !d;
     $('#d-undo').disabled = !d;
-    const q = queues[current.id];
-    $('#d-note').textContent = d ? 'Unsaved changes' : q && q.n ? 'Saving to the sheet\u2026' : '';
+    // "Saved" shows for a few seconds after a save, while the sheet catches up behind it.
+    const saved = justSaved.id === current.id && Date.now() - justSaved.at < 3000;
+    $('#d-note').textContent = d ? 'Unsaved changes' : saved ? '\u2713 Saved' : '';
   }
+  let justSaved = { id: '', at: 0 };
 
   // Saving runs in the background. The page shows the change at once, and the
   // sheet catches up in the few seconds the script takes. Saves to the same
@@ -659,6 +661,8 @@
     replaceRequest(q.local);
     const top = $('#detail').scrollTop;
     current = JSON.parse(JSON.stringify(q.local));
+    justSaved = { id: id, at: Date.now() };
+    setTimeout(() => { if (current && current.id === id && $('#d-save')) updateDirty(); }, 3100);
     renderDetail();
     $('#detail').scrollTop = top;
     renderList();
