@@ -71,7 +71,7 @@
   main {
     max-width: 560px;
     margin: 0 auto;
-    padding: 12px max(12px, env(safe-area-inset-right)) 130px max(12px, env(safe-area-inset-left));
+    padding: 12px max(12px, env(safe-area-inset-right)) 24px max(12px, env(safe-area-inset-left));
     display: grid;
     gap: 12px;
   }
@@ -212,6 +212,12 @@
   .adds button { min-height: 52px; border-radius: var(--r-ctl); font-weight: 600; }
   .secondary { background: var(--step-bg); border: 1px solid var(--step-line); color: var(--step-ink); }
 
+  /* Drag and drop on a computer */
+  .drop-hint { display: none; }
+  @media (hover: hover) and (pointer: fine) { .drop-hint { display: block; } }
+  body.dragging #receiptCard { outline: 2px dashed var(--btn-bg); outline-offset: 3px; }
+  body.dragging #receiptCard.over { outline-style: solid; background: var(--step-bg); }
+
   .check-row { display: flex; align-items: flex-start; gap: 12px; padding: 12px 0 0; margin-top: 12px; border-top: 1px solid var(--line); cursor: pointer; }
   .check-row input { flex: none; width: 24px; height: 24px; margin: 0; accent-color: var(--on-bg); }
   .check-row strong { display: block; font-weight: 600; }
@@ -219,20 +225,16 @@
 
   .link { justify-self: center; background: none; border: 0; color: var(--muted); text-decoration: underline; padding: 10px; font-size: 14px; }
 
-  /* Bottom bar */
+  /* Send band at the end of the form, matching the header */
   .bar {
-    position: fixed;
-    left: 0; right: 0; bottom: 0;
     background: var(--band-bg);
     color: var(--band-ink);
-    padding: 10px max(16px, env(safe-area-inset-right)) calc(10px + env(safe-area-inset-bottom)) max(16px, env(safe-area-inset-left));
-    box-shadow: 0 -2px 12px rgba(0, 0, 0, .15);
-    z-index: 4;
+    border-top: 3px solid var(--band-rule);
+    padding: 20px max(16px, env(safe-area-inset-right)) calc(12px + env(safe-area-inset-bottom)) max(16px, env(safe-area-inset-left));
   }
-  .bar-inner { max-width: 560px; margin: 0 auto; display: flex; align-items: center; gap: 12px; }
-  .total { flex: 1; line-height: 1.1; min-width: 0; }
-  .total span { display: block; font-size: 12.5px; color: var(--band-sub); text-transform: uppercase; letter-spacing: .06em; }
-  .total strong { font-family: var(--title-font); font-size: 28px; font-weight: 700; font-variant-numeric: tabular-nums; }
+  .bar-inner { max-width: 560px; margin: 0 auto; display: grid; gap: 4px; }
+  .bar .primary { width: 100%; min-height: 54px; font-size: 18px; }
+  .bar .link { color: var(--band-sub); }
   .primary {
     min-height: 50px;
     padding: 0 24px;
@@ -317,7 +319,7 @@
   .toast {
     position: fixed;
     left: 12px; right: 12px;
-    bottom: calc(86px + env(safe-area-inset-bottom));
+    bottom: calc(16px + env(safe-area-inset-bottom));
     max-width: 536px;
     margin: 0 auto;
     background: var(--danger);
@@ -427,6 +429,7 @@
         </div>
         <input type="file" id="cameraInput" accept="image/*" capture="environment" hidden>
         <input type="file" id="fileInput" accept="image/*,application/pdf" multiple hidden>
+        <p class="hint drop-hint">You can also drag a photo or PDF onto this box.</p>
         <label class="check-row" id="followWrap" hidden>
           <input type="checkbox" id="toFollow">
           <span><strong>The invoice hasn&rsquo;t come yet</strong>
@@ -451,17 +454,15 @@
         </label>
         <p class="hint">This phone remembers your name, and your email if you give it.</p>
       </section>
-
-      <button type="button" class="link" id="clear">Clear Form</button>
     </div>
   </main>
 
-  <div class="bar" id="bar" hidden>
+  <footer class="bar" id="bar" hidden>
     <div class="bar-inner">
-      <div class="total"><span>Amount</span><strong id="barTotal">$0.00</strong></div>
       <button type="button" class="primary" id="submit">Send Request</button>
+      <button type="button" class="link" id="clear">Clear Form</button>
     </div>
-  </div>
+  </footer>
 
   <div class="toast" id="toast" role="alert" hidden></div>
 
@@ -631,7 +632,6 @@
 
   function updateLeft() {
     const total = parseMoney($('#amount').value);
-    $('#barTotal').textContent = dollars(total);
     const el = $('#left');
     el.hidden = !split;
     if (!split) return;
@@ -1038,6 +1038,44 @@
       await addFiles(files);
     });
   });
+  // On a computer, a photo or PDF dropped on the Receipt box is added like one
+  // chosen with the button. Drops anywhere else are ignored, so the browser
+  // doesn't leave the page to open the file.
+  let dragDepth = 0;
+  const hasFiles = (e) => Array.from((e.dataTransfer && e.dataTransfer.types) || []).includes('Files');
+  const onReceipt = (e) => !$('#rest').hidden && !!(e.target.closest && e.target.closest('#receiptCard'));
+  function endDrag() {
+    dragDepth = 0;
+    document.body.classList.remove('dragging');
+    $('#receiptCard').classList.remove('over');
+  }
+  document.addEventListener('dragenter', (e) => {
+    if (!hasFiles(e)) return;
+    dragDepth++;
+    if (!$('#rest').hidden) document.body.classList.add('dragging');
+  });
+  document.addEventListener('dragleave', (e) => { if (hasFiles(e) && --dragDepth <= 0) endDrag(); });
+  document.addEventListener('dragover', (e) => {
+    if (!hasFiles(e)) return;
+    e.preventDefault();
+    const over = onReceipt(e);
+    $('#receiptCard').classList.toggle('over', over);
+    e.dataTransfer.dropEffect = over ? 'copy' : 'none';
+  });
+  document.addEventListener('drop', async (e) => {
+    if (!hasFiles(e)) return;
+    e.preventDefault();
+    const over = onReceipt(e);
+    endDrag();
+    if (!over) return;
+    const files = Array.from(e.dataTransfer.files);
+    const usable = files.filter((f) => /^image\//.test(f.type) || f.type === 'application/pdf' || /\.pdf$/i.test(f.name));
+    if (usable.length < files.length) toast('Only photos and PDFs can be added.');
+    if (!usable.length) return;
+    Receipt.warm();
+    await addFiles(usable);
+  });
+
   $('#toFollow').addEventListener('change', updateReceipt);
   $('#wantCopy').addEventListener('change', () => {
     showEmail();
