@@ -1,7 +1,8 @@
 .DS_Store
 # Kept off the public site: the script (it holds the chart of accounts and the
-# cardholders), the QuickBooks exports, and the setup notes.
+# cardholders) and its logos file, the QuickBooks exports, and the setup notes.
 Code.gs
+Logos.gs
 accounts.csv
 QuickBooks/
 SETUP.md

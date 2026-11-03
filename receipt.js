@@ -646,7 +646,9 @@ const Receipt = (() => {
     }
     doc.setTitle('Receipt');
     doc.setProducer('Purchase request page');
-    return doc.saveAsBase64();
+    // Without object streams, so the script can put a cover sheet in front of
+    // it for the office's email.
+    return doc.saveAsBase64({ useObjectStreams: false });
   }
 
   /** A base64 PDF -> one JPEG data URL per page, drawn on white. */
