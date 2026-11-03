@@ -260,6 +260,8 @@
   const KEY = { code: 'pr-office-code', name: 'pr-office-name' };
   const ORG_NAMES = { GBC: 'Grace Baptist Church', ICA: 'Indiana Christian Academy', FRH: 'Fire Rescue House' };
   const ORG_LOGOS = { GBC: '../brand/gbc-logo.svg', ICA: '../brand/ica-logo.png', FRH: '../brand/frh-logo.svg' };
+  // The bar across the top of the printed cover sheet, the same colors as the emails.
+  const ORG_COLORS = { GBC: '#3D6B2B', ICA: '#1F4E8C', FRH: '#B81D24' };
   const TYPES = ['Reimbursement', 'Credit card', 'Invoice'];
   const SECTIONS = ['Expense accounts', 'Designated funds'];
   const NOT_SURE = '?';
@@ -721,39 +723,67 @@
       'Getting the receipt for ' + esc(r.id) + '&hellip;</p>');
     const receipt = await receiptPages(r);
     if (w.closed) return;
-    const box = (on) => '<span class="box">' + (on ? '&#10003;' : '') + '</span>';
-    const lines = r.lines.length > 1
-      ? '<table class="lines">' + r.lines.map((l) => '<tr><td>' + esc(accountLabel(l)) + '</td><td class="r">' + dollars(l.amount) + '</td></tr>').join('') + '</table>' : '';
+    // A labeled box. Empty boxes are left blank to fill in by hand.
+    const field = (label, value, cls) => '<div class="f' + (cls ? ' ' + cls : '') + '"><span class="l">' + esc(label) + '</span>' +
+      '<span class="v">' + esc(value || '') + '</span></div>';
+    const type = (label, on, sub) => '<div class="t' + (on ? ' on' : '') + '"><span class="box">' + (on ? '&#10003;' : '') + '</span>' +
+      '<span>' + esc(label) + (sub ? '<small>' + esc(sub) + '</small>' : '') + '</span></div>';
+    const split = r.lines.length > 1;
+    const lines = split
+      ? '<table class="lines"><tr><th>Account</th><th class="r">Amount</th></tr>' +
+        r.lines.map((l) => '<tr><td>' + esc(accountLabel(l)) + '</td><td class="r">' + dollars(l.amount) + '</td></tr>').join('') + '</table>' : '';
     const logo = new URL(ORG_LOGOS[r.org], location.href).href;
     const html = '<!DOCTYPE html><html><head><meta charset="utf-8"><title>' + esc(r.id) + '</title><style>' +
-      'body{font:14px/1.5 Georgia,serif;color:#111;margin:40px 56px}' +
-      '.logo{text-align:center}.logo img{height:64px}h1{text-align:center;font-size:20px;margin:16px 0 22px}' +
-      '.row{display:flex;gap:8px;margin:10px 0;align-items:baseline}.lab{white-space:nowrap}.val{flex:1;border-bottom:1px solid #444;padding:0 6px;min-height:21px}' +
-      '.box{display:inline-block;width:16px;height:16px;border:1px solid #444;text-align:center;line-height:15px;margin-right:6px;vertical-align:-2px}' +
-      '.types{display:flex;gap:28px;margin:12px 0}.sec{font-weight:bold;margin-top:18px}.desc{border-bottom:1px solid #444;min-height:84px;white-space:pre-wrap;padding:2px 6px}' +
-      '.pair{display:flex;gap:40px;margin:22px 0}.pair div{flex:1;text-align:center}.pair .val{display:block;text-align:center;font-size:16px}' +
-      '.small{font-size:12px;color:#555}table.lines{width:100%;border-collapse:collapse;margin-top:8px}table.lines td{border-bottom:1px solid #bbb;padding:3px 6px}.r{text-align:right}' +
-      '.note{margin-top:18px;padding:8px 10px;border:1px solid #bbb;font-size:13px}' +
+      '*{box-sizing:border-box}' +
+      'body{margin:0;background:#fff;font:10.5pt/1.4 system-ui,-apple-system,"Segoe UI",Roboto,Arial,sans-serif;color:#1C232B;' +
+      '-webkit-print-color-adjust:exact;print-color-adjust:exact}' +
+      '.sheet{max-width:7.5in;margin:32px auto}' +
+      '.bar{height:6px;border-radius:3px;background:' + (ORG_COLORS[r.org] || '#2B3440') + '}' +
+      'header{display:flex;align-items:center;justify-content:space-between;gap:16px;padding:16px 0 14px;border-bottom:1px solid #E1E4E8}' +
+      'header img{height:58px;max-width:3.6in;object-fit:contain}' +
+      '.title{text-align:right}.k,.f .l,h2{font-size:7.5pt;font-weight:700;letter-spacing:.12em;text-transform:uppercase;color:#5B6470}' +
+      '.id{font-size:24pt;font-weight:700;line-height:1.1;color:#2B3440}' +
+      '.pill{display:inline-block;margin-top:5px;padding:1px 10px;border-radius:999px;background:#EEF0F3;color:#2B3440;font-size:8.5pt;font-weight:600}' +
+      'section{margin-top:16px}h2{margin:0 0 6px;color:#2B3440}' +
+      '.grid{display:grid;grid-template-columns:1fr 1fr;gap:10px 14px}' +
+      '.f{display:block;border:1px solid #CBD0D6;border-radius:6px;padding:5px 10px 7px;background:#fff}' +
+      '.f .l{display:block;margin-bottom:1px}.f .v{display:block;min-height:1.45em;font-size:11pt;white-space:pre-wrap}' +
+      '.f.big .v{font-size:20pt;font-weight:700;line-height:1.2;color:#2B3440}.f.mid .v{font-size:12.5pt;font-weight:600;padding-top:6px}' +
+      '.f.desc .v{min-height:1.35in}' +
+      '.types{display:grid;grid-template-columns:repeat(3,1fr);gap:10px}' +
+      '.t{display:flex;align-items:center;gap:9px;border:1px solid #CBD0D6;border-radius:6px;padding:9px 11px;color:#5B6470;line-height:1.2}' +
+      '.t small{display:block;font-size:8.5pt;font-weight:400;margin-top:2px}' +
+      '.t .box{flex:none;width:16px;height:16px;border:1.5px solid #8A94A3;border-radius:4px;display:grid;place-items:center;font-size:11px;line-height:1}' +
+      '.t.on{background:#2B3440;border-color:#2B3440;color:#fff;font-weight:600}.t.on .box{border-color:#fff;background:#fff;color:#2B3440}' +
+      'table.lines{width:100%;border-collapse:collapse;margin-top:10px;font-size:10pt}' +
+      'table.lines th{text-align:left;font-size:7.5pt;letter-spacing:.12em;text-transform:uppercase;color:#5B6470;padding:4px 10px;border-bottom:1px solid #CBD0D6}' +
+      'table.lines td{padding:5px 10px;border-bottom:1px solid #E1E4E8}table.lines .r{text-align:right;font-variant-numeric:tabular-nums}' +
+      '.office{background:#F4F5F7;border-radius:8px;padding:10px 12px 12px}' +
+      'footer{display:flex;justify-content:space-between;gap:12px;margin-top:16px;padding-top:8px;border-top:1px solid #E1E4E8;font-size:8.5pt;color:#5B6470}' +
+      '.note{margin-top:18px;padding:8px 10px;border:1px solid #CBD0D6;border-radius:6px;font-size:10pt}' +
       '.rp{break-before:page;page-break-before:always;text-align:center;margin-top:24px}.rp img{max-width:100%;max-height:9.9in}' +
-      '@page{margin:0.5in}@media print{body{margin:0}.rp{margin-top:0}}' +
-      '</style></head><body>' +
-      '<div class="logo"><img src="' + esc(logo) + '" alt=""></div><h1>Purchase Request Form &middot; ' + esc(r.id) + '</h1>' +
-      '<div class="row"><span class="lab">Today\u2019s date:</span><span class="val">' + esc(shortDate(r.submitted)) + '</span>' +
-      '<span class="lab">' + (r.type === 'Invoice' ? 'Invoice date:' : 'Date of purchase:') + '</span><span class="val">' + esc(shortDate(r.date)) + '</span></div>' +
-      '<div class="types"><span>' + box(r.type === 'Reimbursement') + 'Reimbursement</span><span>' + box(r.type === 'Credit card') + 'Credit card purchase' +
-      (r.cardholder ? ': ' + esc(r.cardholder) : '') + '</span><span>' + box(r.type === 'Invoice') + 'Invoice</span></div>' +
-      '<div class="sec">Make payable to:</div>' +
-      '<div class="row"><span class="lab">Vendor:</span><span class="val">' + (r.payeeType === 'Vendor' ? esc(r.payTo) : '') + '</span></div>' +
-      '<div class="row"><span class="lab">Individual:</span><span class="val">' + (r.payeeType === 'Individual' ? esc(r.payTo) : '') + '</span></div>' +
-      '<div class="sec">Description of ministry purchase:</div><div class="desc">' + esc(r.description) + '</div>' +
-      '<div class="pair"><div><span class="val">' + dollars(r.amount) + '</span>Amount requested</div>' +
-      '<div><span class="val">' + esc(r.lines.length > 1 ? 'Split (below)' : accountLabel(r.lines[0] || { qb: '', name: r.accounts })) + '</span>Ministry account</div></div>' + lines +
-      '<div class="row"><span class="lab">Requested by:</span><span class="val">' + esc(r.requestedBy) + '</span></div>' +
-      '<div class="row"><span class="lab">Authorized by:</span><span class="val">' + esc(r.approvedBy ? r.approvedBy + ' (' + shortDate(r.approvedOn) + ')' : '') + '</span></div>' +
-      '<div class="row" style="margin-top:22px"><span class="lab">Date issued:</span><span class="val">' + esc(shortDate(r.issued)) + '</span>' +
-      '<span class="lab">Check #:</span><span class="val">' + esc(r.checkNo) + '</span></div>' +
-      '<p class="small">' + esc(ORG_NAMES[r.org]) + ' &middot; Status: ' + esc(r.status) + (r.notes ? ' &middot; Notes: ' + esc(r.notes) : '') + '</p>' +
-      receipt +
+      '@page{size:letter;margin:0.5in}@media print{.sheet{margin:0}.rp{margin-top:0}}' +
+      '</style></head><body><div class="sheet">' +
+      '<div class="bar"></div>' +
+      '<header><img src="' + esc(logo) + '" alt="' + esc(ORG_NAMES[r.org]) + '">' +
+      '<div class="title"><div class="k">Purchase Request</div><div class="id">' + esc(r.id) + '</div>' +
+      '<span class="pill">' + esc(r.status) + '</span></div></header>' +
+      '<section class="grid">' + field('Today\u2019s date', shortDate(r.submitted)) +
+      field(r.type === 'Invoice' ? 'Invoice date' : 'Date of purchase', shortDate(r.date)) + '</section>' +
+      '<section class="types">' + type('Reimbursement', r.type === 'Reimbursement') +
+      type('Credit Card Purchase', r.type === 'Credit card', r.cardholder) + type('Invoice', r.type === 'Invoice') + '</section>' +
+      '<section><h2>Make Payable To</h2><div class="grid">' +
+      field('Vendor', r.payeeType === 'Vendor' ? r.payTo : '') + field('Individual', r.payeeType === 'Individual' ? r.payTo : '') + '</div></section>' +
+      '<section>' + field('Description of ministry purchase', r.description, 'desc') + '</section>' +
+      '<section><div class="grid">' + field('Amount requested', dollars(r.amount), 'big') +
+      field('Ministry account', split ? 'Split between ' + r.lines.length + ' accounts (below)' : accountLabel(r.lines[0] || { qb: '', name: r.accounts }), 'mid') +
+      '</div>' + lines + '</section>' +
+      '<section class="grid">' + field('Requested by', r.requestedBy) +
+      field('Authorized by', r.approvedBy ? r.approvedBy + ' (' + shortDate(r.approvedOn) + ')' : '') + '</section>' +
+      '<section class="office"><h2>Business Office</h2><div class="grid">' + field('Date issued', shortDate(r.issued)) + field('Check #', r.checkNo) + '</div>' +
+      (r.notes ? '<div style="margin-top:10px">' + field('Notes', r.notes) + '</div>' : '') + '</section>' +
+      '<footer><span>' + esc(ORG_NAMES[r.org]) + '</span><span>Printed ' + esc(shortDate(today())) + '</span></footer>' +
+      receipt + '</div>' +
       '<script>window.onload=function(){setTimeout(function(){window.print()},300)}<\/script></body></html>';
     w.document.open();
     w.document.write(html);
