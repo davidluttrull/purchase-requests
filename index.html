@@ -515,7 +515,8 @@
   let type = '';
   let payee = 'Vendor';
   let split = false;
-  let lines = [{ qb: '', amount: '' }];
+  // Most requests leave the account to the business office, so that's the default.
+  let lines = [{ qb: NOT_SURE, amount: '' }];
   let pages = [];   // {jpeg: Blob, url} or {pdf: Uint8Array, name, count}
 
   function esc(s) {
@@ -553,7 +554,7 @@
     if (key) store((s) => s.setItem(KEY.org, key));
     if (changed) {
       // Each organization has its own accounts and cards.
-      if (!keepLines) lines = lines.map((l) => ({ qb: '', amount: l.amount }));
+      if (!keepLines) lines = lines.map((l) => ({ qb: split ? '' : NOT_SURE, amount: l.amount }));
       renderLines();
       fillCardholders(keepLines ? selectedCard() : null);
     }
@@ -614,7 +615,7 @@
     const box = $('#lines');
     box.innerHTML = lines.map((l, i) => {
       const a = l.qb === NOT_SURE ? null : findAccount(l.qb);
-      const name = l.qb === NOT_SURE ? 'Not sure: the business office will choose'
+      const name = l.qb === NOT_SURE ? 'Business Office Will Choose'
         : a ? (a.number ? a.number + ' ' : '') + a.name : 'Pick an Account';
       const group = a ? (a.section === 'Designated funds' ? 'Designated fund' : a.group.replace(/^\d+\s*/, '')) : '';
       return '<div class="line' + (split ? ' split' : '') + '">' +
@@ -675,7 +676,7 @@
     let html = '';
     if (!words.length) {
       html += '<button type="button" class="p-item p-unsure" data-qb="?" aria-selected="' + (current === NOT_SURE) + '">' +
-        '<span class="num">?</span><span>Not sure: the business office will choose</span></button>';
+        '<span class="num">?</span><span>Business Office Will Choose</span></button>';
     }
     let section = '';
     let group = '';
@@ -783,7 +784,7 @@
     $('#amount').value = '';
     $('#toFollow').checked = false;
     split = false;
-    lines = [{ qb: '', amount: '' }];
+    lines = [{ qb: NOT_SURE, amount: '' }];
     pages.forEach((p) => { if (p.url) URL.revokeObjectURL(p.url); });
     pages = [];
     $('#requestedBy').value = store((s) => s.getItem(KEY.name)) || '';
@@ -877,7 +878,7 @@
     if (!d.payTo) return [d.type === 'Reimbursement' ? 'Enter who should be paid back.' : d.type === 'Credit card' ? 'Enter the store or vendor.' : 'Enter who the check is made out to.', '#payTo'];
     if (!d.description) return ['Describe what was bought and what it\u2019s for.', '#description'];
     if (!(d.amount > 0)) return ['Enter the total amount, like 45.10.', '#amount'];
-    if (d.lines.some((l) => !l.qb)) return [split ? 'Pick an account for each line.' : 'Pick an account, or \u201cNot sure\u201d.', '#amountCard'];
+    if (d.lines.some((l) => !l.qb)) return [split ? 'Pick an account for each line.' : 'Pick an account.', '#amountCard'];
     if (split) {
       if (d.lines.some((l) => !(l.amount > 0))) return ['Enter an amount for each account.', '#amountCard'];
       const used = d.lines.reduce((n, l) => n + cents(l.amount), 0);
@@ -903,7 +904,7 @@
     }
     $('#toast').hidden = true;
     const accts = data.lines.map((l) => {
-      if (l.qb === NOT_SURE) return 'Account: not sure';
+      if (l.qb === NOT_SURE) return 'Account: business office will choose' + (split ? ' ' + dollars(l.amount) : '');
       const a = findAccount(l.qb);
       return (a.number ? a.number + ' ' : '') + a.name + (split ? ' ' + dollars(l.amount) : '');
     });
@@ -971,8 +972,8 @@
     else if (b.dataset.pick) openPicker(Number(b.dataset.pick));
     else if (b.dataset.rm) {
       lines.splice(Number(b.dataset.rm), 1);
-      if (!lines.length) lines.push({ qb: '', amount: '' });
-      if (lines.length === 1) { split = false; lines[0].amount = ''; }
+      if (!lines.length) lines.push({ qb: NOT_SURE, amount: '' });
+      if (lines.length === 1) { split = false; lines[0].amount = ''; if (!lines[0].qb) lines[0].qb = NOT_SURE; }
       renderLines();
     } else if (b.dataset.rmpage) {
       const p = pages.splice(Number(b.dataset.rmpage), 1)[0];
@@ -989,6 +990,8 @@
     split = true;
     const total = parseMoney($('#amount').value);
     lines[0].amount = isFinite(total) ? total.toFixed(2) : '';
+    // Splitting means they know the accounts, so start the first line blank too.
+    if (lines[0].qb === NOT_SURE) lines[0].qb = '';
     lines.push({ qb: '', amount: '' });
     renderLines();
   });
