@@ -319,6 +319,9 @@
   .p-item[aria-selected="true"] { background: var(--step-bg); font-weight: 600; }
   .p-unsure { border: 1px dashed var(--line-strong); margin-top: 8px; }
   .p-none { padding: 20px 8px; color: var(--muted); }
+  .card-btn { width: 100%; }
+  .p-org { display: flex; align-items: center; gap: 8px; }
+  .p-org img { width: 24px; height: 24px; object-fit: contain; background: #FFFFFF; border-radius: 4px; padding: 2px; }
 
   .toast {
     position: fixed;
@@ -383,8 +386,10 @@
             <input type="date" id="date">
           </label>
           <div class="field" id="cardWrap" hidden>
-            <label class="label" for="cardholder">Whose card was used?</label>
-            <select id="cardholder"></select>
+            <label class="label" for="cardBtn">Whose card was used?</label>
+            <!-- The select holds the choice; the button opens a searchable list. -->
+            <select id="cardholder" hidden></select>
+            <button type="button" class="acct card-btn empty" id="cardBtn"><span class="a-name" id="cardBtnText">Pick a name</span></button>
             <div class="card-note" id="cardNote" hidden><img id="cardNoteLogo" alt=""><span id="cardNoteText"></span></div>
             <div id="cardOtherWrap" hidden>
               <input id="cardOther" maxlength="60" autocapitalize="words" placeholder="Name on the Card" style="margin-top:8px">
@@ -489,6 +494,14 @@
       <div class="picker-head"><b id="pickerTitle">Pick an Account</b><button type="button" class="x" id="pickerClose" aria-label="Close">&times;</button></div>
       <div class="picker-search"><input type="search" id="pickerSearch" placeholder="Search by name or number" autocomplete="off" aria-label="Search accounts"></div>
       <div class="picker-list" id="pickerList"></div>
+    </div>
+  </div>
+
+  <div class="overlay picker" id="cardPicker" hidden>
+    <div class="picker-sheet" role="dialog" aria-modal="true" aria-labelledby="cardPickerTitle">
+      <div class="picker-head"><b id="cardPickerTitle">Whose Card?</b><button type="button" class="x" id="cardPickerClose" aria-label="Close">&times;</button></div>
+      <div class="picker-search"><input type="search" id="cardSearch" placeholder="Search by name or GBC, ICA, FRH" autocomplete="off" aria-label="Search cards"></div>
+      <div class="picker-list" id="cardPickList"></div>
     </div>
   </div>
 
@@ -624,8 +637,52 @@
     showCardNote();
   }
 
+  /** The button shows the card picked, as the closed list would. */
+  function showCardButton() {
+    const opt = $('#cardholder').selectedOptions[0];
+    const v = $('#cardholder').value;
+    $('#cardBtnText').textContent = v && opt ? opt.textContent : 'Pick a name';
+    $('#cardBtn').classList.toggle('empty', !v);
+  }
+
+  function openCardPicker() {
+    $('#cardSearch').value = '';
+    renderCardPicker('');
+    $('#cardPicker').hidden = false;
+    document.documentElement.style.overflow = 'hidden';
+    // On phones, a keyboard right away hides most of the list.
+    if (window.matchMedia('(pointer: fine)').matches) $('#cardSearch').focus();
+    const on = $('#cardPickList [aria-selected="true"]');
+    if (on) on.scrollIntoView({ block: 'center' });
+  }
+  function closeCardPicker() {
+    $('#cardPicker').hidden = true;
+    document.documentElement.style.overflow = '';
+  }
+
+  /** Every organization's cards under its logo, the request's own first, then Someone else. */
+  function renderCardPicker(query) {
+    const words = query.toLowerCase().split(/\s+/).filter(Boolean);
+    const current = $('#cardholder').value;
+    let html = '';
+    cardGroups().forEach((g) => {
+      const hits = g.names.map((name, i) => ({ name: name, value: g.org + '|' + i })).filter((c) => {
+        const hay = (c.name + ' ' + g.org + ' ' + ORGS[g.org].name).toLowerCase();
+        return words.every((w) => hay.indexOf(w) !== -1);
+      });
+      if (!hits.length) return;
+      html += '<div class="p-section p-org"><img src="' + ORG_MARKS[g.org] + '" alt="">' + esc(ORGS[g.org].name) + ' Cards</div>' +
+        hits.map((c) => '<button type="button" class="p-item" data-card="' + c.value + '" aria-selected="' + (current === c.value) + '">' +
+          '<span>' + esc(c.name) + '</span></button>').join('');
+    });
+    if (words.length && !html) html = '<p class="p-none">No card matches \u201c' + esc(query) + '\u201d.</p>';
+    html += '<button type="button" class="p-item p-unsure" data-card="*" aria-selected="' + (current === '*') + '"><span>Someone else (type the name)</span></button>';
+    $('#cardPickList').innerHTML = html;
+  }
+
   /** Under the list, the other organization's logo and name when its card is picked. */
   function showCardNote() {
+    showCardButton();
     const card = selectedCard();
     const other = !!card.name && card.org !== org;
     $('#cardNote').hidden = !other;
@@ -904,7 +961,7 @@
     if (!d.type) return ['Pick reimbursement, credit card or invoice.', '#typeCard'];
     if (!d.date) return [d.type === 'Invoice' ? 'Enter the invoice date.' : 'Enter the date of purchase.', '#date'];
     if (d.date > today()) return ['The date can\u2019t be in the future.', '#date'];
-    if (d.type === 'Credit card' && !d.cardholder) return ['Pick whose card was used.', $('#cardholder').value === '*' ? '#cardOther' : '#cardholder'];
+    if (d.type === 'Credit card' && !d.cardholder) return ['Pick whose card was used.', $('#cardholder').value === '*' ? '#cardOther' : '#cardBtn'];
     if (!d.payTo) return [d.type === 'Reimbursement' ? 'Enter who should be paid back.' : d.type === 'Credit card' ? 'Enter the store or vendor.' : 'Enter who the check is made out to.', '#payTo'];
     if (!d.description) return ['Describe what was bought and what it\u2019s for.', '#description'];
     if (!(d.amount > 0)) return ['Enter the total amount, like 45.10.', '#amount'];
@@ -1055,6 +1112,17 @@
     showCardNote();
     if (!$('#cardOtherWrap').hidden) $('#cardOther').focus();
   });
+  $('#cardBtn').addEventListener('click', openCardPicker);
+  $('#cardPickerClose').addEventListener('click', closeCardPicker);
+  $('#cardPicker').addEventListener('click', (e) => {
+    if (e.target === $('#cardPicker')) return closeCardPicker();
+    const b = e.target.closest('[data-card]');
+    if (!b) return;
+    $('#cardholder').value = b.dataset.card;
+    closeCardPicker();
+    $('#cardholder').dispatchEvent(new Event('change'));
+  });
+  $('#cardSearch').addEventListener('input', () => renderCardPicker($('#cardSearch').value));
   $('#requestedBy').addEventListener('change', () => {
     if (type === 'Reimbursement' && !$('#payTo').value.trim()) $('#payTo').value = tidyName($('#requestedBy').value);
   });
@@ -1062,7 +1130,11 @@
   $('#pickerClose').addEventListener('click', closePicker);
   $('#picker').addEventListener('click', (e) => { if (e.target === $('#picker')) closePicker(); });
   $('#pickerSearch').addEventListener('input', () => renderPicker($('#pickerSearch').value));
-  document.addEventListener('keydown', (e) => { if (e.key === 'Escape' && !$('#picker').hidden) closePicker(); });
+  document.addEventListener('keydown', (e) => {
+    if (e.key !== 'Escape') return;
+    if (!$('#picker').hidden) closePicker();
+    if (!$('#cardPicker').hidden) closeCardPicker();
+  });
 
   $('#takePhoto').addEventListener('click', () => { Receipt.warm(); $('#cameraInput').click(); });
   $('#chooseFile').addEventListener('click', () => { Receipt.warm(); $('#fileInput').click(); });
