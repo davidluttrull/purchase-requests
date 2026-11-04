@@ -329,6 +329,8 @@
   function flags(r) {
     const f = [];
     if (otherCard(r)) f.push('Paid with ' + r.cardOrg + ' card');
+    // The approval page asks for the office email after saving; one that never went shows here.
+    if (/Office: (pending|sending)/.test(r.emailed || '')) f.push('Office email not sent');
     const closed = r.status === 'Denied' || r.status === 'Void';
     if (!closed && (r.lines || []).some((l) => l.qb === NOT_SURE)) f.push('Account needed');
     if (r.receipt === 'To follow') f.push('Invoice to follow');

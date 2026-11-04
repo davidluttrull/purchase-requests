@@ -317,7 +317,8 @@
   function accountLabel(l) {
     if (l.qb === NOT_SURE) return 'Business office will choose';
     const org = l.org || request.org;
-    const a = accounts.find((x) => x.org === org && x.qb === l.qb);
+    // The request's own lines carry the name; a line being picked looks it up.
+    const a = l.name ? l : accounts.find((x) => x.org === org && x.qb === l.qb);
     return (org !== request.org ? org + ' ' : '') + (a ? (a.number ? a.number + ' ' : '') + a.name : l.qb);
   }
 
@@ -635,8 +636,7 @@
     return [out];
   }
 
-  /** version: from Yes, Approve, which approves the request only as the email showed it. */
-  async function decide(deny, version) {
+  async function decide(deny) {
     const notes = $('#notes').value.trim();
     let chosen = null;
     if (deny) {
@@ -659,7 +659,7 @@
     const r = request;
     const acctText = deny ? '' : chosen.map((l) => esc(accountLabel(l)) + (chosen.length > 1 ? ' ' + dollars(l.amount) : '')).join('<br>');
     // On the short page, Yes, Approve in the email and Approve here are enough.
-    const ok = !deny && (quick || version) ? true : await dialog(deny ? {
+    const ok = !deny && quick ? true : await dialog(deny ? {
       title: 'Deny ' + r.id + '?',
       body: '<span class="big">' + dollars(r.amount) + '</span>' + esc(txt(r.payTo)) + '<br><br>The business office gets your note.',
       ok: 'Deny', cancel: 'Go Back', danger: true,
@@ -673,22 +673,13 @@
     dialog({ title: deny ? 'Denying\u2026' : 'Approving\u2026', busy: true });
     let res;
     try {
-      res = await api({ action: 'approveDecide', decision: deny ? 'deny' : 'approve', lines: chosen || [], notes: notes, version: version || 0 });
+      res = await api({ action: 'approveDecide', decision: deny ? 'deny' : 'approve', lines: chosen || [], notes: notes });
     } catch (e) {
       $('#dialog').hidden = true;
       return toast(e.message);
     }
+    if (res.status === 'saved') notifyOffice();
     request = res.request;
-    if (res.status === 'changed') {
-      // The office changed it after the email went out: show it as it is now.
-      $('#dialog').hidden = true;
-      useRequest();
-      quick = false;
-      render();
-      renderLines();
-      showReceipt();
-      return dialog({ title: 'This Request Changed', body: 'The business office changed it after your email was sent, so it wasn\u2019t approved. Check it, then tap Approve.', ok: 'OK' });
-    }
     quick = false;
     render();
     showReceipt();
@@ -702,6 +693,16 @@
       });
     }
   }
+  /**
+   * Asks the script to email the business office about the decision just
+   * saved. It runs after Approved shows, so nobody waits on the email; keepalive
+   * sends it even if the tab is closed right away.
+   */
+  function notifyOffice() {
+    fetch(API_URL, { method: 'POST', keepalive: true, body: JSON.stringify({ action: 'approveNotify', id: link.id, key: link.key }) })
+      .catch(() => {});
+  }
+
   $('#approveBtn').addEventListener('click', () => decide(false));
   $('#denyBtn').addEventListener('click', () => decide(true));
 
@@ -716,7 +717,32 @@
     link = { id: m[1], key: m[2] };
     // Drop /deny, /quick or /yes, so a reload shows the full page and can't approve again.
     if (m[3]) history.replaceState(null, '', '#' + link.id + '/' + link.key);
+    const yes = m[5] ? Number(m[5]) : 0;
     let res;
+    // Yes, Approve: approve straight away, in one trip to the script. It only
+    // approves the version the email showed; anything else opens the page.
+    let after = null;
+    if (yes) {
+      $('#loadingText').textContent = 'Approving ' + link.id + '\u2026';
+      try {
+        res = await api({ action: 'approveDecide', decision: 'approve', asIs: true, version: yes, notes: '' });
+        after = res.status;
+      } catch (e) {
+        after = e.message;
+      }
+      if (after === 'saved') {
+        notifyOffice();
+        request = res.request;
+        accounts = [];
+        useRequest();
+        $('#loading').hidden = true;
+        $('#view').hidden = false;
+        render();
+        showReceipt();
+        return dialog({ title: 'Approved', check: true, ok: 'Done', body: 'The business office has the purchase request to print.' });
+      }
+      $('#loadingText').textContent = 'Loading\u2026';
+    }
     try {
       res = await api({ action: 'approveLoad' });
     } catch (e) {
@@ -726,8 +752,7 @@
     request = res.request;
     accounts = res.accounts;
     useRequest();
-    const yes = m[5] ? Number(m[5]) : 0;
-    quick = (m[4] === 'quick' || yes > 0) && request.status === 'New' && lines.every((l) => l.qb);
+    quick = m[4] === 'quick' && request.status === 'New' && lines.every((l) => l.qb);
     $('#loading').hidden = true;
     $('#view').hidden = false;
     render();
@@ -738,7 +763,11 @@
       $('#notes').focus({ preventScroll: true });
     }
     if (!quick) showReceipt();
-    if (yes && quick) decide(false, yes);
+    if (after === 'changed') {
+      dialog({ title: 'This Request Changed', body: 'The business office changed it after your email was sent, so it wasn\u2019t approved. Check it, then tap Approve.', ok: 'OK' });
+    } else if (after && after !== 'decided') {
+      toast(after);
+    }
   }
 
   /** The lines to pick from, as the request has them. */
