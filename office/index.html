@@ -324,8 +324,11 @@
     if (l.qb === NOT_SURE) return 'Account needed';
     return (l.org && l.org !== org ? l.org + ' ' : '') + (l.number ? l.number + ' ' : '') + l.name;
   }
+  /** True when a credit card purchase went on another organization's card. */
+  function otherCard(r) { return r.type === 'Credit card' && !!ORG_NAMES[r.cardOrg] && r.cardOrg !== r.org; }
   function flags(r) {
     const f = [];
+    if (otherCard(r)) f.push('Paid with ' + r.cardOrg + ' card');
     const closed = r.status === 'Denied' || r.status === 'Void';
     if (!closed && (r.lines || []).some((l) => l.qb === NOT_SURE)) f.push('Account needed');
     if (r.receipt === 'To follow') f.push('Invoice to follow');
@@ -431,7 +434,7 @@
     if (filter.org && r.org !== filter.org) return false;
     if (filter.fy && fiscalYear(r.date) !== filter.fy) return false;
     if (filter.q) {
-      const hay = [r.id, r.org, r.type, r.payTo, r.requestedBy, r.email, r.description, r.accounts, r.cardholder, r.checkNo,
+      const hay = [r.id, r.org, r.type, r.payTo, r.requestedBy, r.email, r.description, r.accounts, r.cardholder, r.cardOrg, r.checkNo,
         r.notes, r.approverNotes, dollars(r.amount), String(r.amount), flags(r).join(' ')].join(' ').toLowerCase();
       if (!filter.q.toLowerCase().split(/\s+/).every((w) => hay.indexOf(w) !== -1)) return false;
     }
@@ -538,6 +541,8 @@
       '<label class="f">Type<select id="d-type">' + TYPES.map((t) => '<option' + (r.type === t ? ' selected' : '') + '>' + t + '</option>').join('') + '</select></label>' +
       '<label class="f"><span id="d-dateLabel">Date</span><input type="date" id="d-date" value="' + esc(r.date) + '"></label>' +
       '<label class="f" id="d-cardWrap">Cardholder<input id="d-cardholder" list="d-cards" value="' + esc(r.cardholder) + '"><datalist id="d-cards"></datalist></label>' +
+      '<label class="f" id="d-cardOrgWrap">Whose card<select id="d-cardOrg">' + Object.keys(ORG_NAMES).map((k) => '<option value="' + k + '"' +
+        ((r.cardOrg || r.org) === k ? ' selected' : '') + '>' + k + ' card</option>').join('') + '</select></label>' +
       '<label class="f" id="d-payeeWrap">Payee<select id="d-payeeType"><option' + (r.payeeType === 'Vendor' ? ' selected' : '') + '>Vendor</option><option' + (r.payeeType === 'Individual' ? ' selected' : '') + '>Individual</option></select></label>' +
       '<label class="f"><span id="d-payLabel">Pay to</span><input id="d-payTo" value="' + esc(r.payTo) + '"></label>' +
       '<label class="f wide">Description<textarea id="d-description">' + esc(r.description) + '</textarea></label>' +
@@ -602,12 +607,12 @@
 
   function updateTypeFields() {
     const type = $('#d-type').value;
-    $('#d-cardWrap').hidden = type !== 'Credit card';
+    $('#d-cardWrap').hidden = $('#d-cardOrgWrap').hidden = type !== 'Credit card';
     $('#d-payeeWrap').hidden = type !== 'Invoice';
     $('#d-dateLabel').textContent = type === 'Invoice' ? 'Invoice date' : 'Date of purchase';
     $('#d-payLabel').textContent = type === 'Reimbursement' ? 'Reimburse (person)' : type === 'Credit card' ? 'Store or vendor' : 'Make check out to';
     const org = $('#d-org').value;
-    $('#d-cards').innerHTML = DATA.cardholders.filter((c) => c.org === org && c.active).map((c) => '<option value="' + esc(c.name) + '">').join('');
+    $('#d-cards').innerHTML = DATA.cardholders.filter((c) => c.org === $('#d-cardOrg').value && c.active).map((c) => '<option value="' + esc(c.name) + '">').join('');
   }
 
   function collect() {
@@ -618,6 +623,7 @@
         type: $('#d-type').value,
         date: $('#d-date').value,
         cardholder: $('#d-cardholder').value.trim(),
+        cardOrg: $('#d-cardOrg').value,
         payeeType: $('#d-payeeType').value,
         payTo: $('#d-payTo').value.trim(),
         description: $('#d-description').value.trim(),
@@ -740,7 +746,7 @@
 
   /** What the page shows for a request, to tell whether the sheet's copy differs. */
   function viewKey(r) {
-    return JSON.stringify(['org', 'type', 'date', 'cardholder', 'payeeType', 'payTo', 'description', 'requestedBy', 'email', 'status',
+    return JSON.stringify(['org', 'type', 'date', 'cardholder', 'cardOrg', 'payeeType', 'payTo', 'description', 'requestedBy', 'email', 'status',
       'issued', 'checkNo', 'notes', 'approvedBy', 'approvedOn', 'approverNotes', 'files'].map((k) => String(r[k] || ''))
       .concat(Number(r.amount), (r.lines || []).map((l) => (l.org || r.org) + ' ' + l.qb + ' ' + Number(l.amount))));
   }
@@ -749,7 +755,7 @@
   function applyEdits(r, body) {
     const f = body.form;
     const out = Object.assign(JSON.parse(JSON.stringify(r)), f);
-    if (f.type !== 'Credit card') out.cardholder = '';
+    if (f.type !== 'Credit card') { out.cardholder = ''; out.cardOrg = ''; }
     out.lines = body.lines.map((l) => {
       const a = DATA.accounts.find((x) => x.org === (l.org || f.org) && x.qb === l.qb);
       return { org: l.org || f.org, qb: l.qb, number: a ? a.number : '', name: l.qb === NOT_SURE ? 'Account needed' : a ? a.name : l.qb, amount: l.amount };
@@ -924,6 +930,7 @@
       'table.lines th{text-align:left;font-size:7.5pt;letter-spacing:.12em;text-transform:uppercase;color:#5B6470;padding:4px 10px;border-bottom:1px solid #CBD0D6}' +
       'table.lines td{padding:5px 10px;border-bottom:1px solid #E1E4E8}table.lines .r{text-align:right;font-variant-numeric:tabular-nums}' +
       '.office{background:#F4F5F7;border-radius:8px;padding:10px 12px 12px}' +
+      '.card-other{background:#FDF0D5;border:1px solid #E0B65A;border-radius:6px;padding:6px 12px;color:#7A4E00;font-weight:700;font-size:10pt}' +
       'footer{display:flex;justify-content:space-between;gap:12px;margin-top:16px;padding-top:8px;border-top:1px solid #E1E4E8;font-size:8.5pt;color:#5B6470}' +
       '.note{margin-top:18px;padding:8px 10px;border:1px solid #CBD0D6;border-radius:6px;font-size:10pt}' +
       '.rp{break-before:page;page-break-before:always;text-align:center;margin-top:24px}.rp img{max-width:100%;max-height:9.9in}' +
@@ -937,6 +944,7 @@
       field(r.type === 'Invoice' ? 'Invoice date' : 'Date of purchase', shortDate(r.date)) + '</section>' +
       '<section class="types">' + type('Reimbursement', r.type === 'Reimbursement') +
       type('Credit Card Purchase', r.type === 'Credit card', r.cardholder) + type('Invoice', r.type === 'Invoice') + '</section>' +
+      (otherCard(r) ? '<section class="card-other">Paid with a ' + esc(ORG_NAMES[r.cardOrg]) + ' card (' + esc(r.cardOrg) + '), for ' + esc(ORG_NAMES[r.org]) + '</section>' : '') +
       '<section><h2>Make Payable To</h2><div class="grid">' +
       field('Vendor', r.payeeType === 'Vendor' ? r.payTo : '') + field('Individual', r.payeeType === 'Individual' ? r.payTo : '') + '</div></section>' +
       '<section>' + field('Description of ministry purchase', r.description, 'desc') + '</section>' +
@@ -995,14 +1003,14 @@
   function exportCsv() {
     const rows = visible();
     if (!rows.length) return toast('No requests to export.');
-    const head = ['ID', 'Submitted', 'Org', 'Type', 'Purchase Date', 'Fiscal Year', 'Cardholder', 'Payee Type', 'Pay To', 'Description',
+    const head = ['ID', 'Submitted', 'Org', 'Type', 'Purchase Date', 'Fiscal Year', 'Cardholder', 'Card Org', 'Payee Type', 'Pay To', 'Description',
       'Account Org', 'Account #', 'Account', 'QuickBooks Name', 'Line Amount', 'Request Total', 'Requested By', 'Email', 'Status', 'Approved By',
       'Approved On', 'Approver Note', 'Date Issued', 'Check #', 'Receipt', 'Receipt Link', 'Office Notes'];
     const out = [head];
     rows.slice().reverse().forEach((r) => {
       const lines = r.lines.length ? r.lines : [{ number: '', name: r.accounts, qb: '', amount: r.amount }];
       lines.forEach((l) => {
-        out.push([r.id, r.submitted.replace('T', ' '), r.org, r.type, r.date, fiscalYear(r.date), r.cardholder, r.payeeType, r.payTo,
+        out.push([r.id, r.submitted.replace('T', ' '), r.org, r.type, r.date, fiscalYear(r.date), r.cardholder, r.cardOrg || '', r.payeeType, r.payTo,
           r.description, l.org || r.org, l.number, l.qb === NOT_SURE ? 'Account needed' : l.name, l.qb === NOT_SURE ? '' : l.qb, Number(l.amount).toFixed(2),
           Number(r.amount).toFixed(2), r.requestedBy, r.email, r.status, r.approvedBy, r.approvedOn, r.approverNotes, r.issued, r.checkNo, r.receipt,
           String(r.files || '').split('\n')[0], r.notes]);
@@ -1175,7 +1183,7 @@
       e.target.dataset.was = org;
       renderLinesEditor();
     }
-    if (e.target.id === 'd-type' || e.target.id === 'd-org') updateTypeFields();
+    if (e.target.id === 'd-type' || e.target.id === 'd-org' || e.target.id === 'd-cardOrg') updateTypeFields();
     if (current) updateDirty();
   });
 

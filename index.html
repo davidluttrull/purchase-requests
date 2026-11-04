@@ -218,6 +218,10 @@
   body.dragging #receiptCard { outline: 2px dashed var(--btn-bg); outline-offset: 3px; }
   body.dragging #receiptCard.over { outline-style: solid; background: var(--step-bg); }
 
+  /* Another organization's card */
+  .card-note { display: flex; align-items: center; gap: 10px; margin-top: 8px; padding: 8px 10px; border-radius: var(--r-ctl); background: var(--warn-bg); color: var(--warn-ink); font-size: 14px; font-weight: 500; }
+  .card-note img { flex: none; width: 34px; height: 34px; object-fit: contain; background: #FFFFFF; border-radius: 4px; padding: 3px; }
+
   .check-row { display: flex; align-items: flex-start; gap: 12px; padding: 12px 0 0; margin-top: 12px; border-top: 1px solid var(--line); cursor: pointer; }
   .check-row input { flex: none; width: 24px; height: 24px; margin: 0; accent-color: var(--on-bg); }
   .check-row strong { display: block; font-weight: 600; }
@@ -381,6 +385,7 @@
           <div class="field" id="cardWrap" hidden>
             <label class="label" for="cardholder">Whose card was used?</label>
             <select id="cardholder"></select>
+            <div class="card-note" id="cardNote" hidden><img id="cardNoteLogo" alt=""><span id="cardNoteText"></span></div>
             <div id="cardOtherWrap" hidden>
               <input id="cardOther" maxlength="60" autocapitalize="words" placeholder="Name on the Card" style="margin-top:8px">
             </div>
@@ -553,10 +558,11 @@
     $('#bar').hidden = !key;
     if (key) store((s) => s.setItem(KEY.org, key));
     if (changed) {
-      // Each organization has its own accounts and cards.
+      // Each organization has its own accounts.
       if (!keepLines) lines = lines.map((l) => ({ qb: split ? '' : NOT_SURE, amount: l.amount }));
       renderLines();
-      fillCardholders(keepLines ? selectedCard() : null);
+      // A card is a card whichever organization is picked, so the choice stays.
+      fillCardholders(selectedCard());
     }
   }
 
@@ -589,21 +595,43 @@
     $('#payTo').placeholder = type === 'Reimbursement' ? 'Your name' : type === 'Credit card' ? 'Walmart, Amazon, Lowe\u2019s\u2026' : '';
   }
 
-  function cardList() { return (CONFIG && CONFIG.cardholders[org]) || []; }
+  const ORG_MARKS = { GBC: 'brand/gbc-mark.svg', ICA: 'brand/ica-crest.png', FRH: 'brand/frh-mark.svg' };
 
-  /** Fills the cardholder list for the organization, keeping {name} picked if it's still there. */
+  /** Every organization's cards, the request's own first: staff sometimes buy for one on another's card. */
+  function cardGroups() {
+    const keys = Object.keys(ORG_MARKS);
+    return [org].concat(keys.filter((k) => k !== org))
+      .map((k) => ({ org: k, names: (CONFIG && CONFIG.cardholders[k]) || [] }))
+      .filter((g) => g.names.length);
+  }
+
+  /** Fills the cardholder list, keeping {name, org} picked if it's still there. Values are "ORG|n". */
   function fillCardholders(selected) {
-    const cards = cardList();
+    const groups = cardGroups();
     const sel = $('#cardholder');
     sel.innerHTML = '<option value="">Pick a name</option>' +
-      cards.map((name, i) => '<option value="' + i + '">' + esc(name) + '</option>').join('') +
+      groups.map((g) => '<optgroup label="' + esc(ORGS[g.org].name) + ' cards">' +
+        g.names.map((name, i) => '<option value="' + g.org + '|' + i + '">' + esc(name) + (g.org === org ? '' : ' (' + g.org + ' card)') + '</option>').join('') +
+        '</optgroup>').join('') +
       '<option value="*">Someone else</option>';
-    if (!cards.length) sel.innerHTML = '<option value="*">Type the name on the card</option>';
+    if (!groups.length) sel.innerHTML = '<option value="*">Type the name on the card</option>';
     const pick = selected && selected.name ? selected : null;
-    const at = pick ? cards.indexOf(pick.name) : -1;
-    sel.value = at !== -1 ? String(at) : (pick || !cards.length ? '*' : '');
+    const group = pick ? groups.find((g) => g.org === (pick.org || org)) : null;
+    const at = group ? group.names.indexOf(pick.name) : -1;
+    sel.value = at !== -1 ? group.org + '|' + at : (pick || !groups.length ? '*' : '');
     $('#cardOtherWrap').hidden = sel.value !== '*';
     $('#cardOther').value = at === -1 && pick ? pick.name : '';
+    showCardNote();
+  }
+
+  /** Under the list, the other organization's logo and name when its card is picked. */
+  function showCardNote() {
+    const card = selectedCard();
+    const other = !!card.name && card.org !== org;
+    $('#cardNote').hidden = !other;
+    if (!other) return;
+    $('#cardNoteLogo').src = ORG_MARKS[card.org];
+    $('#cardNoteText').textContent = 'A ' + ORGS[card.org].name + ' card, used for ' + ORGS[org].name + '. The business office will see that.';
   }
 
   // ---- Accounts ---------------------------------------------------------------
@@ -746,11 +774,12 @@
     return s === s.toLowerCase() ? s.replace(/(^|[\s'-])([a-z])/g, (m, before, letter) => before + letter.toUpperCase()) : s;
   }
 
-  /** {name} of the cardholder picked, or typed in under "Someone else". */
+  /** {name, org} of the card picked, or typed in under "Someone else" (taken as the request's organization's). */
   function selectedCard() {
     const v = $('#cardholder').value;
-    if (v === '*') return { name: tidyName($('#cardOther').value) };
-    return { name: cardList()[Number(v)] || '' };
+    if (v === '*') return { name: tidyName($('#cardOther').value), org: org };
+    const [k, i] = v.split('|');
+    return { name: ((CONFIG && CONFIG.cardholders[k]) || [])[Number(i)] || '', org: k || org };
   }
 
   function collect() {
@@ -760,6 +789,7 @@
       type: type,
       date: $('#date').value,
       cardholder: type === 'Credit card' ? selectedCard().name : '',
+      cardOrg: type === 'Credit card' ? selectedCard().org : '',
       payeeType: type === 'Reimbursement' ? 'Individual' : type === 'Credit card' ? 'Vendor' : payee,
       payTo: $('#payTo').value.trim(),
       description: $('#description').value.trim(),
@@ -913,6 +943,7 @@
       body: '<span class="big">' + dollars(data.amount) + '</span>' + esc(data.payTo) + ' &middot; ' + esc(dateLabel(data.date)) +
         '<br>' + esc(ORGS[org].name) + ' &middot; ' + esc(data.type) +
         (data.cardholder ? ': ' + esc(data.cardholder) : '') +
+        (data.cardholder && data.cardOrg !== org ? '<span class="warn">On a ' + esc(ORGS[data.cardOrg].name) + ' card.</span>' : '') +
         '<br>' + accts.map(esc).join('<br>') +
         (data.receiptToFollow && !pages.length ? '<span class="warn">The invoice will follow.</span>' : ''),
       ok: 'Send',
@@ -1021,6 +1052,7 @@
 
   $('#cardholder').addEventListener('change', () => {
     $('#cardOtherWrap').hidden = $('#cardholder').value !== '*';
+    showCardNote();
     if (!$('#cardOtherWrap').hidden) $('#cardOther').focus();
   });
   $('#requestedBy').addEventListener('change', () => {

@@ -310,6 +310,9 @@
     if (!m) return '';
     return new Date(Number(m[1]), Number(m[2]) - 1, Number(m[3])).toLocaleDateString(undefined, { weekday: 'short', month: 'short', day: 'numeric', year: 'numeric' });
   }
+  /** True when a credit card purchase went on another organization's card. */
+  function otherCard(r) { return r.type === 'Credit card' && !!ORG_NAMES[r.cardOrg] && r.cardOrg !== r.org; }
+
   // "6230 Art", or "GBC 5210 Youth" for another organization's account.
   function accountLabel(l) {
     if (l.qb === NOT_SURE) return 'Business office will choose';
@@ -373,6 +376,7 @@
     $('#topSub').textContent = 'Purchase Request ' + r.id;
     const badges = [];
     if (r.status !== 'New') badges.push('<span class="badge st-' + esc(r.status) + '">' + esc(r.status) + '</span>');
+    if (otherCard(r)) badges.push('<span class="badge flag">Paid with ' + esc(r.cardOrg) + ' card</span>');
     if (r.receipt === 'To follow') badges.push('<span class="badge flag">Invoice to follow</span>');
     $('#badges').innerHTML = badges.join('');
     $('#badges').hidden = !badges.length;
@@ -381,7 +385,8 @@
 
     const rows = [
       ['Organization', ORG_NAMES[r.org] || r.org],
-      ['Type', r.type + (r.cardholder ? ' (' + txt(r.cardholder) + '\u2019s card)' : '')],
+      ...(r.cardholder ? [['Card', txt(r.cardholder) + (otherCard(r) ? ' (' + ORG_NAMES[r.cardOrg] + ' card)' : '')]] : []),
+      ['Type', r.type],
       [r.type === 'Invoice' ? 'Invoice date' : 'Purchase date', dateLabel(r.date)],
       [r.payeeType === 'Individual' ? 'Pay to (individual)' : r.type === 'Credit card' ? 'Store or vendor' : 'Pay to (vendor)', txt(r.payTo)],
       ['Description', txt(r.description)],
