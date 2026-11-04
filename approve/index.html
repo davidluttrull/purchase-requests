@@ -14,7 +14,9 @@
   approve/#PR-1001/key/deny from the Deny button. The approver checks the
   request and receipt, picks the ministry account, adds a note, and approves
   or denies it. The script then emails the business office. Same look as the
-  staff page.
+  staff page. approve/#PR-1001/key/quick, from Yes, Approve when staff picked
+  the account, opens a short version: the amount, the account as picked and
+  a note, approved with one tap.
 -->
 <style>
   :root {
@@ -105,6 +107,8 @@
   .left { margin: 10px 0 0; font-size: 14px; font-weight: 600; font-variant-numeric: tabular-nums; }
   .left.off { color: var(--danger); }
   .left.even { color: var(--ok); }
+  .picked { margin: 8px 0 0; font-size: 18px; font-weight: 600; }
+  .picked span { font-weight: 400; color: var(--muted); }
   .textbtn { background: none; border: 0; padding: 10px 0 0; color: var(--heading); font-weight: 600; font-size: 15px; text-decoration: underline; text-underline-offset: 3px; }
 
   .decided { border-left: 5px solid var(--btn-bg); }
@@ -161,16 +165,17 @@
       <div class="badges" id="badges"></div>
       <div class="amount" id="amount"></div>
       <div class="payto" id="payTo"></div>
+      <button type="button" class="textbtn" id="more" hidden>Show Details and Receipt</button>
     </section>
 
     <section class="card decided" id="decided" hidden></section>
 
-    <section class="card">
+    <section class="card" id="detailsCard">
       <h2>Details</h2>
       <table id="details"></table>
     </section>
 
-    <section class="card">
+    <section class="card" id="receiptCard">
       <h2>Receipt</h2>
       <div class="pages" id="pages"></div>
       <p class="receipt-note" id="receiptNote">Loading the receipt&hellip;</p>
@@ -179,10 +184,12 @@
     <div id="decide" hidden>
       <section class="card" id="acctCard">
         <h2 id="acctLabel">Ministry Account</h2>
+        <p class="hint" id="acctHint" hidden></p>
         <div id="lines"></div>
         <p class="left" id="left" hidden></p>
         <button type="button" class="textbtn" id="split">Split Between Accounts</button>
         <button type="button" class="textbtn" id="addLine" hidden>Add Another Account</button>
+        <button type="button" class="textbtn" id="change" hidden>Change Account</button>
       </section>
 
       <section class="card" id="noteCard" style="margin-top:12px">
@@ -229,6 +236,8 @@
   let accounts = [];
   let split = false;
   let lines = [];       // [{qb, amount}] being picked
+  let quick = false;    // the short page: approve the account staff picked
+  let receiptShown = false;
 
   function esc(s) {
     return String(s === null || s === undefined ? '' : s).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
@@ -327,6 +336,9 @@
       rows.splice(4, 0, [r.lines.length > 1 ? 'Accounts' : 'Account', r.lines.map((l) =>
         accountLabel(l.qb) + (r.lines.length > 1 ? ': ' + dollars(l.amount) : '')).join('\n')]);
     }
+    $('#detailsCard').hidden = quick;
+    $('#receiptCard').hidden = quick;
+    $('#more').hidden = !quick;
     $('#details').innerHTML = rows.map((row) => '<tr><td>' + esc(row[0]) + '</td><td>' + esc(row[1]) + '</td></tr>').join('');
 
     const open = r.status === 'New';
@@ -350,6 +362,8 @@
   }
 
   async function showReceipt() {
+    if (receiptShown) return;
+    receiptShown = true;
     if (!String(request.files || '').trim()) {
       $('#receiptNote').textContent = request.receipt === 'To follow' ? 'The invoice hasn\u2019t come yet.' : 'No receipt is attached.';
       return;
@@ -386,6 +400,16 @@
   }
 
   function renderLines() {
+    $('#change').hidden = !quick;
+    $('#acctHint').hidden = !quick;
+    if (quick) {
+      $('#acctHint').textContent = 'Picked by ' + txt(request.requestedBy) + '.';
+      $('#lines').innerHTML = lines.map((l) => '<p class="picked">' + esc(accountLabel(l.qb)) +
+        (split ? ' <span>' + dollars(parseMoney(l.amount)) + '</span>' : '') + '</p>').join('');
+      $('#split').hidden = $('#addLine').hidden = $('#left').hidden = true;
+      $('#acctLabel').textContent = split ? 'Ministry Accounts' : 'Ministry Account';
+      return;
+    }
     $('#lines').innerHTML = lines.map((l, i) =>
       '<div class="line' + (split ? ' split' : '') + '">' +
       '<select data-i="' + i + '" class="' + (l.qb ? '' : 'empty') + '" aria-label="Account ' + (i + 1) + '">' + accountOptions(l.qb) + '</select>' +
@@ -436,6 +460,19 @@
     lines = [{ qb: lines[0].qb, amount: Number(request.amount).toFixed(2) }, { qb: '', amount: '' }];
     renderLines();
   });
+  // Leaves the short page for the full one, to change the account or see the receipt.
+  function fullPage() {
+    quick = false;
+    render();
+    renderLines();
+    showReceipt();
+  }
+  $('#change').addEventListener('click', () => {
+    fullPage();
+    $('#acctCard').scrollIntoView({ behavior: 'smooth', block: 'center' });
+    $('#lines select').focus({ preventScroll: true });
+  });
+  $('#more').addEventListener('click', fullPage);
   $('#addLine').addEventListener('click', () => {
     if (lines.length >= MAX_LINES) return toast('A request can be split across at most ' + MAX_LINES + ' accounts.');
     lines.push({ qb: '', amount: '' });
@@ -476,7 +513,8 @@
     $('#toast').hidden = true;
     const r = request;
     const acctText = deny ? '' : chosen.map((l) => esc(accountLabel(l.qb)) + (chosen.length > 1 ? ' ' + dollars(l.amount) : '')).join('<br>');
-    const ok = await dialog(deny ? {
+    // On the short page, Yes, Approve in the email and Approve here are enough.
+    const ok = !deny && quick ? true : await dialog(deny ? {
       title: 'Deny ' + r.id + '?',
       body: '<span class="big">' + dollars(r.amount) + '</span>' + esc(txt(r.payTo)) + '<br><br>The business office gets your note.',
       ok: 'Deny', cancel: 'Go Back', danger: true,
@@ -496,7 +534,9 @@
       return toast(e.message);
     }
     request = res.request;
+    quick = false;
     render();
+    showReceipt();
     window.scrollTo({ top: 0, behavior: 'smooth' });
     if (res.status === 'decided') {
       await dialog({ title: 'Already ' + (request.status === 'Void' ? 'Voided' : request.status), body: 'Someone already decided this one. Nothing was changed.', ok: 'OK' });
@@ -513,13 +553,13 @@
   // ---- Start -------------------------------------------------------------------
 
   async function start() {
-    const m = /^#(PR-\d+)\/([\w-]+)(\/deny)?$/.exec(location.hash);
+    const m = /^#(PR-\d+)\/([\w-]+)(\/(deny|quick))?$/.exec(location.hash);
     if (!m) {
       $('#loadingText').textContent = 'This link isn\u2019t complete. Open it again from the email.';
       return;
     }
     link = { id: m[1], key: m[2] };
-    // Drop /deny, so a reload doesn't jump to the note again.
+    // Drop /deny or /quick, so a reload shows the full page.
     if (m[3]) history.replaceState(null, '', '#' + link.id + '/' + link.key);
     let res;
     try {
@@ -535,16 +575,17 @@
       qb: l.qb === NOT_SURE ? '' : l.qb,
       amount: split ? Number(l.amount).toFixed(2) : '',
     }));
+    quick = m[4] === 'quick' && request.status === 'New' && lines.every((l) => l.qb);
     $('#loading').hidden = true;
     $('#view').hidden = false;
     render();
     renderLines();
-    if (m[3] && request.status === 'New') {
+    if (m[4] === 'deny' && request.status === 'New') {
       $('#noteHint').textContent = 'Say why it\u2019s denied, then tap Deny. The business office sees your note.';
       $('#noteCard').scrollIntoView({ block: 'center' });
       $('#notes').focus({ preventScroll: true });
     }
-    showReceipt();
+    if (!quick) showReceipt();
   }
   start();
 })();
