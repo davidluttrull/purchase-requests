@@ -125,6 +125,7 @@
   .f textarea { min-height: 70px; resize: vertical; }
   .lines { display: grid; gap: 6px; }
   .lrow { display: flex; gap: 6px; }
+  .lrow select.org { flex: 0 0 76px; }
   .lrow select { flex: 1; min-width: 0; min-height: 38px; padding: 6px 9px; border: 1px solid var(--line-strong); border-radius: var(--r); background: var(--input); }
   .lrow input { width: 110px; min-height: 38px; padding: 6px 9px; border: 1px solid var(--line-strong); border-radius: var(--r); background: var(--input); text-align: right; font-variant-numeric: tabular-nums; }
   .lrow .x { width: 38px; border: 1px solid var(--line-strong); border-radius: var(--r); background: var(--step-bg); font-size: 18px; }
@@ -318,8 +319,10 @@
     const m = /\/d\/([-\w]{25,})/.exec(url) || /[?&]id=([-\w]{25,})/.exec(url);
     return m ? m[1] : '';
   }
-  function accountLabel(l) {
-    return l.qb === NOT_SURE ? 'Account needed' : (l.number ? l.number + ' ' : '') + l.name;
+  /** "6230 Art", or "GBC 5210 Youth" for an account from another organization than the request's, org. */
+  function accountLabel(l, org) {
+    if (l.qb === NOT_SURE) return 'Account needed';
+    return (l.org && l.org !== org ? l.org + ' ' : '') + (l.number ? l.number + ' ' : '') + l.name;
   }
   function flags(r) {
     const f = [];
@@ -555,7 +558,8 @@
       '<div class="savebar"><button type="button" class="btn primary" data-act="save" id="d-save" disabled>Save Changes</button>' +
       '<button type="button" class="btn" data-act="undo" id="d-undo" disabled>Undo Changes</button><span class="note" id="d-note"></span></div></div></div></div>';
 
-    draftLines = (r.lines.length ? r.lines : [{ qb: '', amount: r.amount }]).map((l) => ({ qb: l.qb, amount: Number(l.amount).toFixed(2) }));
+    draftLines = (r.lines.length ? r.lines : [{ qb: '', amount: r.amount }]).map((l) => ({ org: l.org || r.org, qb: l.qb, amount: Number(l.amount).toFixed(2) }));
+    $('#d-org').dataset.was = r.org;
     renderLinesEditor();
     updateTypeFields();
     snapshot = JSON.stringify(collect());
@@ -577,8 +581,11 @@
   function renderLinesEditor() {
     const org = $('#d-org').value;
     const many = draftLines.length > 1;
+    // A split can take accounts from more than one organization.
     $('#d-lines').innerHTML = draftLines.map((l, i) =>
-      '<div class="lrow"><select data-line="' + i + '" aria-label="Account ' + (i + 1) + '">' + accountOptions(org, l.qb) + '</select>' +
+      '<div class="lrow">' + (many || l.org !== org ? '<select class="org" data-lorg="' + i + '" aria-label="Organization for account ' + (i + 1) + '">' +
+        Object.keys(ORG_NAMES).map((k) => '<option' + (l.org === k ? ' selected' : '') + '>' + k + '</option>').join('') + '</select>' : '') +
+      '<select data-line="' + i + '" aria-label="Account ' + (i + 1) + '">' + accountOptions(l.org, l.qb) + '</select>' +
       (many ? '<input data-lamt="' + i + '" inputmode="decimal" value="' + esc(l.amount) + '" aria-label="Amount ' + (i + 1) + '">' +
         '<button type="button" class="x" data-rmline="' + i + '" aria-label="Remove account ' + (i + 1) + '">&times;</button>' : '') + '</div>').join('');
     updateLineSum();
@@ -623,8 +630,8 @@
         notes: $('#d-notes').value.trim(),
       },
       lines: draftLines.length > 1
-        ? draftLines.map((l) => ({ qb: l.qb, amount: parseMoney(l.amount) }))
-        : [{ qb: draftLines[0].qb, amount: amount }],
+        ? draftLines.map((l) => ({ org: l.org, qb: l.qb, amount: parseMoney(l.amount) }))
+        : [{ org: draftLines[0].org, qb: draftLines[0].qb, amount: amount }],
     };
   }
 
@@ -717,7 +724,7 @@
       return;
     }
     const typed = edits || (dirty() ? collect() : null);
-    const lines = edits ? edits.lines.map((l) => ({ qb: l.qb, amount: Number(l.amount).toFixed(2) })) : draftLines;
+    const lines = edits ? edits.lines.map((l) => ({ org: l.org, qb: l.qb, amount: Number(l.amount).toFixed(2) })) : draftLines;
     if (!typed && viewKey(current) === viewKey(r)) {
       // Nothing on the page changes: skip redrawing, which would reload the receipt preview.
       current = JSON.parse(JSON.stringify(r));
@@ -735,7 +742,7 @@
   function viewKey(r) {
     return JSON.stringify(['org', 'type', 'date', 'cardholder', 'payeeType', 'payTo', 'description', 'requestedBy', 'email', 'status',
       'issued', 'checkNo', 'notes', 'approvedBy', 'approvedOn', 'approverNotes', 'files'].map((k) => String(r[k] || ''))
-      .concat(Number(r.amount), (r.lines || []).map((l) => l.qb + ' ' + Number(l.amount))));
+      .concat(Number(r.amount), (r.lines || []).map((l) => (l.org || r.org) + ' ' + l.qb + ' ' + Number(l.amount))));
   }
 
   /** The request as it will be once body is saved, shown before the sheet answers. Same rules as the script. */
@@ -744,8 +751,8 @@
     const out = Object.assign(JSON.parse(JSON.stringify(r)), f);
     if (f.type !== 'Credit card') out.cardholder = '';
     out.lines = body.lines.map((l) => {
-      const a = DATA.accounts.find((x) => x.org === f.org && x.qb === l.qb);
-      return { qb: l.qb, number: a ? a.number : '', name: l.qb === NOT_SURE ? 'Account needed' : a ? a.name : l.qb, amount: l.amount };
+      const a = DATA.accounts.find((x) => x.org === (l.org || f.org) && x.qb === l.qb);
+      return { org: l.org || f.org, qb: l.qb, number: a ? a.number : '', name: l.qb === NOT_SURE ? 'Account needed' : a ? a.name : l.qb, amount: l.amount };
     });
     // Approving or denying here takes the place of an earlier decision the other way.
     const decision = (st) => st === 'Approved' || st === 'Paid' ? 'yes' : st === 'Denied' ? 'no' : '';
@@ -843,6 +850,7 @@
     });
     $('#d-amount').value = isFinite(edits.form.amount) ? edits.form.amount.toFixed(2) : '';
     draftLines = lines;
+    $('#d-org').dataset.was = edits.form.org;
     renderLinesEditor();
     updateTypeFields();
     updateDirty();
@@ -888,7 +896,7 @@
     const split = r.lines.length > 1;
     const lines = split
       ? '<table class="lines"><tr><th>Account</th><th class="r">Amount</th></tr>' +
-        r.lines.map((l) => '<tr><td>' + esc(accountLabel(l)) + '</td><td class="r">' + dollars(l.amount) + '</td></tr>').join('') + '</table>' : '';
+        r.lines.map((l) => '<tr><td>' + esc(accountLabel(l, r.org)) + '</td><td class="r">' + dollars(l.amount) + '</td></tr>').join('') + '</table>' : '';
     const logo = new URL(ORG_LOGOS[r.org], location.href).href;
     const html = '<!DOCTYPE html><html><head><meta charset="utf-8"><title>' + esc(r.id) + '</title><style>' +
       '*{box-sizing:border-box}' +
@@ -933,7 +941,7 @@
       field('Vendor', r.payeeType === 'Vendor' ? r.payTo : '') + field('Individual', r.payeeType === 'Individual' ? r.payTo : '') + '</div></section>' +
       '<section>' + field('Description of ministry purchase', r.description, 'desc') + '</section>' +
       '<section><div class="grid">' + field('Amount requested', dollars(r.amount), 'big') +
-      field('Ministry account', split ? 'Split between ' + r.lines.length + ' accounts (below)' : accountLabel(r.lines[0] || { qb: '', name: r.accounts }), 'mid') +
+      field('Ministry account', split ? 'Split between ' + r.lines.length + ' accounts (below)' : accountLabel(r.lines[0] || { qb: '', name: r.accounts }, r.org), 'mid') +
       '</div>' + lines + '</section>' +
       '<section class="grid">' + field('Requested by', r.requestedBy) +
       field(r.status === 'Denied' ? 'Denied by' : 'Authorized by', r.approvedBy ? r.approvedBy + ' (' + shortDate(r.approvedOn) + ')' : '') + '</section>' +
@@ -988,14 +996,14 @@
     const rows = visible();
     if (!rows.length) return toast('No requests to export.');
     const head = ['ID', 'Submitted', 'Org', 'Type', 'Purchase Date', 'Fiscal Year', 'Cardholder', 'Payee Type', 'Pay To', 'Description',
-      'Account #', 'Account', 'QuickBooks Name', 'Line Amount', 'Request Total', 'Requested By', 'Email', 'Status', 'Approved By',
+      'Account Org', 'Account #', 'Account', 'QuickBooks Name', 'Line Amount', 'Request Total', 'Requested By', 'Email', 'Status', 'Approved By',
       'Approved On', 'Approver Note', 'Date Issued', 'Check #', 'Receipt', 'Receipt Link', 'Office Notes'];
     const out = [head];
     rows.slice().reverse().forEach((r) => {
       const lines = r.lines.length ? r.lines : [{ number: '', name: r.accounts, qb: '', amount: r.amount }];
       lines.forEach((l) => {
         out.push([r.id, r.submitted.replace('T', ' '), r.org, r.type, r.date, fiscalYear(r.date), r.cardholder, r.payeeType, r.payTo,
-          r.description, l.number, l.qb === NOT_SURE ? 'Account needed' : l.name, l.qb === NOT_SURE ? '' : l.qb, Number(l.amount).toFixed(2),
+          r.description, l.org || r.org, l.number, l.qb === NOT_SURE ? 'Account needed' : l.name, l.qb === NOT_SURE ? '' : l.qb, Number(l.amount).toFixed(2),
           Number(r.amount).toFixed(2), r.requestedBy, r.email, r.status, r.approvedBy, r.approvedOn, r.approverNotes, r.issued, r.checkNo, r.receipt,
           String(r.files || '').split('\n')[0], r.notes]);
       });
@@ -1120,7 +1128,7 @@
     if (act === 'attach') { Receipt.warm(); $('#attachInput').click(); }
     if (act === 'addline') {
       if (draftLines.length === 1) draftLines[0].amount = isFinite(parseMoney($('#d-amount').value)) ? parseMoney($('#d-amount').value).toFixed(2) : '';
-      draftLines.push({ qb: '', amount: '' });
+      draftLines.push({ org: $('#d-org').value, qb: '', amount: '' });
       renderLinesEditor();
       updateDirty();
     }
@@ -1149,9 +1157,22 @@
   });
   $('#detail').addEventListener('change', (e) => {
     if (e.target.dataset.line !== undefined) draftLines[Number(e.target.dataset.line)].qb = e.target.value;
+    if (e.target.dataset.lorg !== undefined) {
+      const l = draftLines[Number(e.target.dataset.lorg)];
+      l.org = e.target.value;
+      if (l.qb !== NOT_SURE && !accountsFor(l.org).some((a) => a.qb === l.qb)) l.qb = '';
+      renderLinesEditor();
+    }
     if (e.target.id === 'd-org') {
+      // Lines on the old organization's accounts move with it; lines on another ministry's stay.
       const org = e.target.value;
-      draftLines.forEach((l) => { if (l.qb !== NOT_SURE && !accountsFor(org).some((a) => a.qb === l.qb)) l.qb = ''; });
+      const was = e.target.dataset.was;
+      draftLines.forEach((l) => {
+        if (l.org !== was) return;
+        l.org = org;
+        if (l.qb !== NOT_SURE && !accountsFor(org).some((a) => a.qb === l.qb)) l.qb = '';
+      });
+      e.target.dataset.was = org;
       renderLinesEditor();
     }
     if (e.target.id === 'd-type' || e.target.id === 'd-org') updateTypeFields();

@@ -99,7 +99,9 @@
   .line select { flex: 1; min-width: 0; }
   .line.split { flex-wrap: wrap; padding-top: 10px; border-top: 1px solid var(--line); }
   .line.split:first-child { border-top: 0; padding-top: 0; }
-  .line.split select { flex: 1 1 100%; }
+  .line.split select { flex: 1 1 0; }
+  .line.split select.org { flex: 0 0 88px; }
+  .line .break { flex-basis: 100%; height: 0; }
   .money { display: flex; align-items: center; gap: 4px; padding: 0 12px; flex: 1; }
   .money span { color: var(--muted); }
   .money input { border: 0; padding: 0; min-height: 46px; flex: 1; min-width: 0; background: transparent; font-variant-numeric: tabular-nums; outline: none; }
@@ -256,10 +258,12 @@
     if (!m) return '';
     return new Date(Number(m[1]), Number(m[2]) - 1, Number(m[3])).toLocaleDateString(undefined, { weekday: 'short', month: 'short', day: 'numeric', year: 'numeric' });
   }
-  function accountLabel(qb) {
-    if (qb === NOT_SURE) return 'Business office will choose';
-    const a = accounts.find((x) => x.qb === qb);
-    return a ? (a.number ? a.number + ' ' : '') + a.name : qb;
+  // "6230 Art", or "GBC 5210 Youth" for another organization's account.
+  function accountLabel(l) {
+    if (l.qb === NOT_SURE) return 'Business office will choose';
+    const org = l.org || request.org;
+    const a = accounts.find((x) => x.org === org && x.qb === l.qb);
+    return (org !== request.org ? org + ' ' : '') + (a ? (a.number ? a.number + ' ' : '') + a.name : l.qb);
   }
 
   let toastTimer;
@@ -334,7 +338,7 @@
     ];
     if (r.status !== 'New' || r.lines.length > 1 || (r.lines[0] && r.lines[0].qb !== NOT_SURE)) {
       rows.splice(4, 0, [r.lines.length > 1 ? 'Accounts' : 'Account', r.lines.map((l) =>
-        accountLabel(l.qb) + (r.lines.length > 1 ? ': ' + dollars(l.amount) : '')).join('\n')]);
+        accountLabel(l) + (r.lines.length > 1 ? ': ' + dollars(l.amount) : '')).join('\n')]);
     }
     $('#detailsCard').hidden = quick;
     $('#receiptCard').hidden = quick;
@@ -384,10 +388,10 @@
 
   // ---- Picking the accounts ----------------------------------------------------
 
-  function accountOptions(selected) {
+  function accountOptions(org, selected) {
     let html = '<option value="">Pick an Account</option>';
     let group = null;
-    accounts.forEach((a) => {
+    accounts.filter((a) => a.org === org).forEach((a) => {
       const g = a.section === 'Designated funds' ? 'Designated funds' : a.group;
       if (g !== group) {
         if (group !== null) html += '</optgroup>';
@@ -404,16 +408,19 @@
     $('#acctHint').hidden = !quick;
     if (quick) {
       $('#acctHint').textContent = 'Picked by ' + txt(request.requestedBy) + '.';
-      $('#lines').innerHTML = lines.map((l) => '<p class="picked">' + esc(accountLabel(l.qb)) +
+      $('#lines').innerHTML = lines.map((l) => '<p class="picked">' + esc(accountLabel(l)) +
         (split ? ' <span>' + dollars(parseMoney(l.amount)) + '</span>' : '') + '</p>').join('');
       $('#split').hidden = $('#addLine').hidden = $('#left').hidden = true;
       $('#acctLabel').textContent = split ? 'Ministry Accounts' : 'Ministry Account';
       return;
     }
+    // A split can take accounts from more than one ministry, so each line picks its organization.
     $('#lines').innerHTML = lines.map((l, i) =>
       '<div class="line' + (split ? ' split' : '') + '">' +
-      '<select data-i="' + i + '" class="' + (l.qb ? '' : 'empty') + '" aria-label="Account ' + (i + 1) + '">' + accountOptions(l.qb) + '</select>' +
-      (split ? '<label class="money"><span>$</span><input data-amt="' + i + '" inputmode="decimal" autocomplete="off" placeholder="0.00" value="' + esc(l.amount) + '" aria-label="Amount for account ' + (i + 1) + '"></label>' +
+      (split || l.org !== request.org ? '<select class="org" data-org="' + i + '" aria-label="Organization for account ' + (i + 1) + '">' +
+        Object.keys(ORG_NAMES).map((k) => '<option value="' + k + '"' + (l.org === k ? ' selected' : '') + '>' + k + '</option>').join('') + '</select>' : '') +
+      '<select data-i="' + i + '" class="' + (l.qb ? '' : 'empty') + '" aria-label="Account ' + (i + 1) + '">' + accountOptions(l.org, l.qb) + '</select>' +
+      (split ? '<div class="break"></div><label class="money"><span>$</span><input data-amt="' + i + '" inputmode="decimal" autocomplete="off" placeholder="0.00" value="' + esc(l.amount) + '" aria-label="Amount for account ' + (i + 1) + '"></label>' +
         '<button type="button" class="rm" data-rm="' + i + '" aria-label="Remove account ' + (i + 1) + '">&times;</button>' : '') +
       '</div>').join('');
     $('#split').hidden = split;
@@ -434,6 +441,13 @@
   }
 
   $('#lines').addEventListener('change', (e) => {
+    if (e.target.dataset.org !== undefined) {
+      const l = lines[Number(e.target.dataset.org)];
+      l.org = e.target.value;
+      if (!accounts.some((a) => a.org === l.org && a.qb === l.qb)) l.qb = '';
+      renderLines();
+      return;
+    }
     if (e.target.dataset.i === undefined) return;
     lines[Number(e.target.dataset.i)].qb = e.target.value;
     e.target.classList.toggle('empty', !e.target.value);
@@ -457,7 +471,7 @@
   });
   $('#split').addEventListener('click', () => {
     split = true;
-    lines = [{ qb: lines[0].qb, amount: Number(request.amount).toFixed(2) }, { qb: '', amount: '' }];
+    lines = [{ org: lines[0].org, qb: lines[0].qb, amount: Number(request.amount).toFixed(2) }, { org: request.org, qb: '', amount: '' }];
     renderLines();
   });
   // Leaves the short page for the full one, to change the account or see the receipt.
@@ -475,7 +489,7 @@
   $('#more').addEventListener('click', fullPage);
   $('#addLine').addEventListener('click', () => {
     if (lines.length >= MAX_LINES) return toast('A request can be split across at most ' + MAX_LINES + ' accounts.');
-    lines.push({ qb: '', amount: '' });
+    lines.push({ org: request.org, qb: '', amount: '' });
     renderLines();
   });
 
@@ -483,8 +497,8 @@
 
   function picked() {
     if (lines.some((l) => !l.qb)) return [null, split ? 'Pick an account for each line.' : 'Pick the ministry account.'];
-    if (!split) return [[{ qb: lines[0].qb, amount: request.amount }]];
-    const out = lines.map((l) => ({ qb: l.qb, amount: parseMoney(l.amount) }));
+    if (!split) return [[{ org: lines[0].org, qb: lines[0].qb, amount: request.amount }]];
+    const out = lines.map((l) => ({ org: l.org, qb: l.qb, amount: parseMoney(l.amount) }));
     if (out.some((l) => !(l.amount > 0))) return [null, 'Enter an amount for each account.'];
     const used = out.reduce((n, l) => n + cents(l.amount), 0);
     if (used !== cents(request.amount)) return [null, 'The accounts add up to ' + dollars(used / 100) + ', not ' + dollars(request.amount) + '.'];
@@ -512,7 +526,7 @@
     }
     $('#toast').hidden = true;
     const r = request;
-    const acctText = deny ? '' : chosen.map((l) => esc(accountLabel(l.qb)) + (chosen.length > 1 ? ' ' + dollars(l.amount) : '')).join('<br>');
+    const acctText = deny ? '' : chosen.map((l) => esc(accountLabel(l)) + (chosen.length > 1 ? ' ' + dollars(l.amount) : '')).join('<br>');
     // On the short page, Yes, Approve in the email and Approve here are enough.
     const ok = !deny && quick ? true : await dialog(deny ? {
       title: 'Deny ' + r.id + '?',
@@ -572,6 +586,7 @@
     accounts = res.accounts;
     split = request.lines.length > 1;
     lines = (request.lines.length ? request.lines : [{ qb: '', amount: '' }]).map((l) => ({
+      org: l.org || request.org,
       qb: l.qb === NOT_SURE ? '' : l.qb,
       amount: split ? Number(l.amount).toFixed(2) : '',
     }));
