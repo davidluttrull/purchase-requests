@@ -24,6 +24,7 @@
     --gbc: #233617; --ica: #172233; --frh: #B81D24;
     --s-new: #FFF6DD; --s-new-ink: #6B4E00; --s-approved: #E5EEF9; --s-approved-ink: #1F4E86;
     --s-paid: #E6F3EA; --s-paid-ink: #24603F; --s-void: #ECECEC; --s-void-ink: #555;
+    --s-denied: #FBE4E4; --s-denied-ink: #8A1F17;
     --r: 6px;
   }
   @media (prefers-color-scheme: dark) {
@@ -35,6 +36,7 @@
       --gbc: #4E7A35; --ica: #3A5277; --frh: #C8323A;
       --s-new: #3A2F16; --s-new-ink: #F0C66B; --s-approved: #1E3550; --s-approved-ink: #9CC3F0;
       --s-paid: #183A29; --s-paid-ink: #8FD3AE; --s-void: #2E3236; --s-void-ink: #A9AEB3;
+      --s-denied: #3D1C1A; --s-denied-ink: #F2B8B5;
     }
   }
   * { box-sizing: border-box; }
@@ -96,6 +98,7 @@
   .st-Approved { background: var(--s-approved); color: var(--s-approved-ink); }
   .st-Paid { background: var(--s-paid); color: var(--s-paid-ink); }
   .st-Void { background: var(--s-void); color: var(--s-void-ink); }
+  .st-Denied { background: var(--s-denied); color: var(--s-denied-ink); }
   .flag { background: var(--warn-bg); color: var(--warn-ink); }
 
   .detail { overflow-y: auto; padding: 16px 20px 40px; }
@@ -233,8 +236,8 @@
           <button type="button" class="btn primary" id="saveCards" disabled>Save Cardholders</button></div>
       </div>
       <div class="panel">
-        <h2>Who Gets New Requests</h2>
-        <p class="help">Each of these addresses is emailed about every new request, with a link to it here.</p>
+        <h2>Who Gets Approved Requests</h2>
+        <p class="help">Each of these addresses is emailed every request once the approver approves it (with the PDF to print) or denies it (with the reason), with a link to it here. The approver is set on the Settings tab of the Sheet.</p>
         <div class="tablewrap"><table class="edit" id="mailTable"></table></div>
         <div class="rowbtns"><button type="button" class="btn" id="addMail">Add Email</button><span class="spacer"></span>
           <button type="button" class="btn primary" id="saveMail" disabled>Save Emails</button></div>
@@ -266,7 +269,7 @@
   const SECTIONS = ['Expense accounts', 'Designated funds'];
   const NOT_SURE = '?';
   const STATUS_CHIPS = [
-    ['open', 'Open'], ['New', 'New'], ['Approved', 'Approved'], ['Paid', 'Paid'], ['Void', 'Void'], ['all', 'All'],
+    ['open', 'Open'], ['New', 'New'], ['Approved', 'Approved'], ['Denied', 'Denied'], ['Paid', 'Paid'], ['Void', 'Void'], ['all', 'All'],
   ];
 
   const $ = (sel) => document.querySelector(sel);
@@ -320,7 +323,8 @@
   }
   function flags(r) {
     const f = [];
-    if ((r.lines || []).some((l) => l.qb === NOT_SURE)) f.push('Account needed');
+    const closed = r.status === 'Denied' || r.status === 'Void';
+    if (!closed && (r.lines || []).some((l) => l.qb === NOT_SURE)) f.push('Account needed');
     if (r.receipt === 'To follow') f.push('Invoice to follow');
     return f;
   }
@@ -425,7 +429,7 @@
     if (filter.fy && fiscalYear(r.date) !== filter.fy) return false;
     if (filter.q) {
       const hay = [r.id, r.org, r.type, r.payTo, r.requestedBy, r.email, r.description, r.accounts, r.cardholder, r.checkNo,
-        r.notes, dollars(r.amount), String(r.amount), flags(r).join(' ')].join(' ').toLowerCase();
+        r.notes, r.approverNotes, dollars(r.amount), String(r.amount), flags(r).join(' ')].join(' ').toLowerCase();
       if (!filter.q.toLowerCase().split(/\s+/).every((w) => hay.indexOf(w) !== -1)) return false;
     }
     return true;
@@ -541,8 +545,9 @@
       '<label class="f">Email<input id="d-email" type="email" value="' + esc(r.email) + '"></label>' +
       '</div></div>' +
       '<div class="panel"><h3>Business Office</h3><div class="grid">' +
-      '<label class="f">Status<select id="d-status">' + ['New', 'Approved', 'Paid', 'Void'].map((s) => '<option' + (r.status === s ? ' selected' : '') + '>' + s + '</option>').join('') + '</select></label>' +
-      '<label class="f">Approved by<input value="' + esc(r.approvedBy ? r.approvedBy + ', ' + shortDate(r.approvedOn) : '') + '" disabled></label>' +
+      '<label class="f">Status<select id="d-status">' + ['New', 'Approved', 'Denied', 'Paid', 'Void'].map((s) => '<option' + (r.status === s ? ' selected' : '') + '>' + s + '</option>').join('') + '</select></label>' +
+      '<label class="f">' + (r.status === 'Denied' ? 'Denied by' : 'Approved by') + '<input value="' + esc(r.approvedBy ? r.approvedBy + ', ' + shortDate(r.approvedOn) : '') + '" disabled></label>' +
+      (r.approverNotes ? '<label class="f wide">' + (r.status === 'Denied' ? 'Reason denied' : 'Approver\u2019s note') + '<textarea disabled>' + esc(r.approverNotes) + '</textarea></label>' : '') +
       '<label class="f">Date issued<input type="date" id="d-issued" value="' + esc(r.issued || '') + '"></label>' +
       '<label class="f">Check #<input id="d-checkNo" value="' + esc(r.checkNo) + '"></label>' +
       '<label class="f wide">Office notes<textarea id="d-notes" placeholder="Only the business office sees these.">' + esc(r.notes) + '</textarea></label>' +
@@ -559,7 +564,8 @@
 
   function metaHtml(r) {
     const meta = ['Sent ' + stamp(r.submitted) + ' by ' + esc(r.requestedBy)];
-    if (r.approvedBy) meta.push('Approved by ' + esc(r.approvedBy) + ' on ' + shortDate(r.approvedOn));
+    if (r.status === 'New' && DATA.approver) meta.push('Waiting for ' + esc(DATA.approver) + '\u2019s approval');
+    if (r.approvedBy) meta.push((r.status === 'Denied' ? 'Denied by ' : 'Approved by ') + esc(r.approvedBy) + ' on ' + shortDate(r.approvedOn));
     if (r.status === 'Paid') meta.push('Paid ' + shortDate(r.issued) + (r.checkNo ? ', check #' + esc(r.checkNo) : ''));
     if (r.changedBy) meta.push('Last changed by ' + esc(r.changedBy) + ' ' + stamp(r.changedAt));
     return meta.join(' &middot; ');
@@ -728,7 +734,7 @@
   /** What the page shows for a request, to tell whether the sheet's copy differs. */
   function viewKey(r) {
     return JSON.stringify(['org', 'type', 'date', 'cardholder', 'payeeType', 'payTo', 'description', 'requestedBy', 'email', 'status',
-      'issued', 'checkNo', 'notes', 'approvedBy', 'approvedOn', 'files'].map((k) => String(r[k] || ''))
+      'issued', 'checkNo', 'notes', 'approvedBy', 'approvedOn', 'approverNotes', 'files'].map((k) => String(r[k] || ''))
       .concat(Number(r.amount), (r.lines || []).map((l) => l.qb + ' ' + Number(l.amount))));
   }
 
@@ -741,11 +747,15 @@
       const a = DATA.accounts.find((x) => x.org === f.org && x.qb === l.qb);
       return { qb: l.qb, number: a ? a.number : '', name: l.qb === NOT_SURE ? 'Account needed' : a ? a.name : l.qb, amount: l.amount };
     });
-    if ((f.status === 'Approved' || f.status === 'Paid') && !out.approvedBy) {
+    // Approving or denying here takes the place of an earlier decision the other way.
+    const decision = (st) => st === 'Approved' || st === 'Paid' ? 'yes' : st === 'Denied' ? 'no' : '';
+    const now = decision(f.status);
+    if (now && (!out.approvedBy || now !== (decision(r.status) || now))) {
       out.approvedBy = store((s) => s.getItem(KEY.name)) || '';
       out.approvedOn = today();
+      out.approverNotes = '';
     }
-    if (f.status === 'New') { out.approvedBy = ''; out.approvedOn = ''; }
+    if (f.status === 'New') { out.approvedBy = ''; out.approvedOn = ''; out.approverNotes = ''; }
     out.changedBy = store((s) => s.getItem(KEY.name)) || '';
     out.changedAt = new Date().toISOString();
     return out;
@@ -926,7 +936,8 @@
       field('Ministry account', split ? 'Split between ' + r.lines.length + ' accounts (below)' : accountLabel(r.lines[0] || { qb: '', name: r.accounts }), 'mid') +
       '</div>' + lines + '</section>' +
       '<section class="grid">' + field('Requested by', r.requestedBy) +
-      field('Authorized by', r.approvedBy ? r.approvedBy + ' (' + shortDate(r.approvedOn) + ')' : '') + '</section>' +
+      field(r.status === 'Denied' ? 'Denied by' : 'Authorized by', r.approvedBy ? r.approvedBy + ' (' + shortDate(r.approvedOn) + ')' : '') + '</section>' +
+      (r.approverNotes ? '<section>' + field(r.status === 'Denied' ? 'Reason denied' : 'Approver\u2019s note', r.approverNotes) + '</section>' : '') +
       '<section class="office"><h2>Business Office</h2><div class="grid">' + field('Date issued', shortDate(r.issued)) + field('Check #', r.checkNo) + '</div>' +
       (r.notes ? '<div style="margin-top:10px">' + field('Notes', r.notes) + '</div>' : '') + '</section>' +
       '<footer><span>' + esc(ORG_NAMES[r.org]) + '</span><span>Printed ' + esc(shortDate(today())) + '</span></footer>' +
@@ -978,14 +989,14 @@
     if (!rows.length) return toast('No requests to export.');
     const head = ['ID', 'Submitted', 'Org', 'Type', 'Purchase Date', 'Fiscal Year', 'Cardholder', 'Payee Type', 'Pay To', 'Description',
       'Account #', 'Account', 'QuickBooks Name', 'Line Amount', 'Request Total', 'Requested By', 'Email', 'Status', 'Approved By',
-      'Approved On', 'Date Issued', 'Check #', 'Receipt', 'Receipt Link', 'Office Notes'];
+      'Approved On', 'Approver Note', 'Date Issued', 'Check #', 'Receipt', 'Receipt Link', 'Office Notes'];
     const out = [head];
     rows.slice().reverse().forEach((r) => {
       const lines = r.lines.length ? r.lines : [{ number: '', name: r.accounts, qb: '', amount: r.amount }];
       lines.forEach((l) => {
         out.push([r.id, r.submitted.replace('T', ' '), r.org, r.type, r.date, fiscalYear(r.date), r.cardholder, r.payeeType, r.payTo,
           r.description, l.number, l.qb === NOT_SURE ? 'Account needed' : l.name, l.qb === NOT_SURE ? '' : l.qb, Number(l.amount).toFixed(2),
-          Number(r.amount).toFixed(2), r.requestedBy, r.email, r.status, r.approvedBy, r.approvedOn, r.issued, r.checkNo, r.receipt,
+          Number(r.amount).toFixed(2), r.requestedBy, r.email, r.status, r.approvedBy, r.approvedOn, r.approverNotes, r.issued, r.checkNo, r.receipt,
           String(r.files || '').split('\n')[0], r.notes]);
       });
     });
