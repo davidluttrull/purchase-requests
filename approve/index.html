@@ -356,10 +356,11 @@
     });
   }
 
-  async function api(body) {
+  /** keepalive: the request goes through even if the page is closed while it's on its way. */
+  async function api(body, keepalive) {
     let res;
     try {
-      const r = await fetch(API_URL, { method: 'POST', body: JSON.stringify(Object.assign({ id: link.id, key: link.key }, body)) });
+      const r = await fetch(API_URL, { method: 'POST', keepalive: !!keepalive, body: JSON.stringify(Object.assign({ id: link.id, key: link.key }, body)) });
       res = await r.json();
     } catch (e) {
       throw new Error('Couldn\u2019t reach the business office sheet. Check your connection.');
@@ -719,19 +720,22 @@
     if (m[3]) history.replaceState(null, '', '#' + link.id + '/' + link.key);
     const yes = m[5] ? Number(m[5]) : 0;
     let res;
-    // Yes, Approve: approve straight away, in one trip to the script. It only
-    // approves the version the email showed; anything else opens the page.
+    // Yes, Approve: say Approved right away, and approve in one trip to the
+    // script that also emails the office, so it all finishes even if this page
+    // is closed. Waking the script can take several seconds. It only approves
+    // the version the email showed; anything else takes the Approved back and
+    // opens the page.
     let after = null;
     if (yes) {
-      $('#loadingText').textContent = 'Approving ' + link.id + '\u2026';
+      $('#loadingText').textContent = 'Saving the approval\u2026';
+      dialog({ title: 'Approved', check: true, ok: 'Done', body: esc(link.id) + ' is approved. The business office gets the purchase request to print. You can close this page.' });
       try {
-        res = await api({ action: 'approveDecide', decision: 'approve', asIs: true, version: yes, notes: '' });
+        res = await api({ action: 'approveDecide', decision: 'approve', asIs: true, version: yes, notes: '', notify: true }, true);
         after = res.status;
       } catch (e) {
         after = e.message;
       }
       if (after === 'saved') {
-        notifyOffice();
         request = res.request;
         accounts = [];
         useRequest();
@@ -739,8 +743,9 @@
         $('#view').hidden = false;
         render();
         showReceipt();
-        return dialog({ title: 'Approved', check: true, ok: 'Done', body: 'The business office has the purchase request to print.' });
+        return;
       }
+      $('#dialog').hidden = true;
       $('#loadingText').textContent = 'Loading\u2026';
     }
     try {
@@ -764,9 +769,9 @@
     }
     if (!quick) showReceipt();
     if (after === 'changed') {
-      dialog({ title: 'This Request Changed', body: 'The business office changed it after your email was sent, so it wasn\u2019t approved. Check it, then tap Approve.', ok: 'OK' });
+      dialog({ title: 'Not Approved: It Changed', body: 'The business office changed this request after your email was sent, so it wasn\u2019t approved. Check it, then tap Approve.', ok: 'OK' });
     } else if (after && after !== 'decided') {
-      toast(after);
+      dialog({ title: 'Not Approved Yet', body: esc(after) + '<br><br>Tap Approve below to try again.', ok: 'OK' });
     }
   }
 
