@@ -14,9 +14,11 @@
   approve/#PR-1001/key/deny from the Deny button. The approver checks the
   request and receipt, picks the ministry account, adds a note, and approves
   or denies it. The script then emails the business office. Same look as the
-  staff page. approve/#PR-1001/key/quick, from Yes, Approve when staff picked
-  the account, opens a short version: the amount, the account as picked and
-  a note, approved with one tap.
+  staff page. approve/#PR-1001/key/yes/1, from Yes, Approve when staff picked
+  the account, approves it as it is as soon as the page opens, as long as it's
+  still version 1 (unchanged since the email). approve/#PR-1001/key/quick
+  opens a short version: the amount, the account as picked and a note,
+  approved with one tap.
 -->
 <style>
   :root {
@@ -149,6 +151,43 @@
   .spinner { width: 44px; height: 44px; margin: 4px auto 14px; border-radius: 50%; border: 4px solid var(--line); border-top-color: var(--heading); animation: spin 1s linear infinite; }
   @keyframes spin { to { transform: rotate(360deg); } }
 
+  /* Account button and picker, as on the staff page */
+  .acct {
+    flex: 1; min-width: 0; min-height: 48px; display: grid; align-content: center; padding: 8px 36px 8px 12px; text-align: left;
+    border: 1px solid var(--line-strong); border-radius: var(--r-ctl); background: var(--input); position: relative;
+  }
+  .acct::after { content: ""; position: absolute; right: 16px; top: 50%; width: 8px; height: 8px; margin-top: -6px;
+    border-right: 2px solid var(--muted); border-bottom: 2px solid var(--muted); transform: rotate(45deg); }
+  .acct span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .acct.empty span { color: var(--muted); }
+  .line.split .acct { flex: 1 1 0; }
+  .picker { align-items: stretch; padding: 0; }
+  @media (min-width: 600px) { .picker { padding: 24px; align-items: center; } }
+  .picker-sheet { width: 100%; max-width: 560px; background: var(--card); display: flex; flex-direction: column; max-height: 100%; padding-top: env(safe-area-inset-top); }
+  @media (min-width: 600px) { .picker-sheet { border-radius: var(--r-card); max-height: 86vh; } }
+  .picker-head { display: flex; align-items: center; gap: 10px; padding: 12px 12px 8px 16px; }
+  .picker-head b { flex: 1; font-size: 20px; font-weight: 600; }
+  .x { width: 44px; height: 44px; border: 0; border-radius: var(--r-ctl); background: var(--step-bg); color: var(--step-ink); font-size: 24px; line-height: 1; }
+  .picker-search { padding: 0 16px 10px; border-bottom: 1px solid var(--line); }
+  .picker-search input { width: 100%; min-height: 46px; padding: 10px 12px; border: 1px solid var(--line-strong); border-radius: var(--r-ctl); background: var(--input); font-size: 16px; }
+  .picker-list { overflow-y: auto; -webkit-overflow-scrolling: touch; padding: 4px 8px calc(16px + env(safe-area-inset-bottom)); }
+  .p-section { margin: 14px 8px 2px; font-size: 12.5px; font-weight: 700; letter-spacing: .1em; text-transform: uppercase; color: var(--heading); }
+  .p-group { margin: 10px 8px 2px; font-size: 13px; font-weight: 600; color: var(--muted); }
+  .p-item { display: flex; gap: 10px; width: 100%; min-height: 46px; align-items: center; padding: 8px; border: 0; border-radius: var(--r-ctl); background: none; text-align: left; }
+  .p-item:hover, .p-item:focus-visible { background: var(--step-bg); }
+  .p-item .num { flex: none; width: 44px; font-variant-numeric: tabular-nums; color: var(--muted); font-size: 14px; }
+  .p-item[aria-selected="true"] { background: var(--step-bg); font-weight: 600; }
+  .p-none { padding: 20px 8px; color: var(--muted); }
+
+  /* Receipt page zoomed in */
+  .pages img { cursor: zoom-in; }
+  .zoom { position: fixed; inset: 0; z-index: 30; background: #0E1218; overflow: auto; -webkit-overflow-scrolling: touch; }
+  .zoom img { display: block; width: 100%; height: auto; background: #fff; cursor: zoom-in; }
+  .zoom.big img { width: 250%; max-width: none; cursor: zoom-out; }
+  .zoom-bar { position: fixed; top: calc(10px + env(safe-area-inset-top)); right: 10px; left: 10px; display: flex; justify-content: space-between; align-items: center; pointer-events: none; z-index: 31; }
+  .zoom-bar span { pointer-events: auto; background: rgba(14,18,24,.75); color: #fff; padding: 6px 12px; border-radius: 999px; font-size: 14px; }
+  .zoom-bar .x { pointer-events: auto; background: rgba(14,18,24,.75); color: #fff; }
+
   .toast {
     position: fixed; left: 12px; right: 12px; bottom: calc(16px + env(safe-area-inset-bottom)); max-width: 536px; margin: 0 auto;
     background: var(--danger); color: var(--danger-ink); padding: 12px 14px; border-radius: var(--r-card); font-size: 15px; z-index: 60;
@@ -210,6 +249,19 @@
   </div>
 
   <div class="toast" id="toast" role="alert" hidden></div>
+
+  <div class="overlay picker" id="picker" hidden>
+    <div class="picker-sheet" role="dialog" aria-modal="true" aria-labelledby="pickerTitle">
+      <div class="picker-head"><b id="pickerTitle">Pick an Account</b><button type="button" class="x" id="pickerClose" aria-label="Close">&times;</button></div>
+      <div class="picker-search"><input type="search" id="pickerSearch" placeholder="Search by name or number" autocomplete="off" aria-label="Search accounts"></div>
+      <div class="picker-list" id="pickerList"></div>
+    </div>
+  </div>
+
+  <div class="zoom" id="zoom" role="dialog" aria-modal="true" aria-label="Receipt page" hidden>
+    <img id="zoomImg" alt="">
+  </div>
+  <div class="zoom-bar" id="zoomBar" hidden><span id="zoomHint">Tap to zoom in</span><button type="button" class="x" id="zoomClose" aria-label="Close">&times;</button></div>
 
   <div class="overlay" id="dialog" hidden>
     <div class="sheet" role="dialog" aria-modal="true" aria-labelledby="dialogTitle">
@@ -379,29 +431,14 @@
         if (/pdf/i.test(f.type)) pages.push(...await Receipt.pageImages(f.data));
         else if (/^image\//.test(f.type)) pages.push('data:' + f.type + ';base64,' + f.data);
       }
-      $('#pages').innerHTML = pages.map((src, i) => '<img src="' + src + '" alt="Receipt page ' + (i + 1) + '">').join('');
-      $('#receiptNote').textContent = pages.length > 1 ? pages.length + ' pages. It\u2019s also attached to the email.' : 'It\u2019s also attached to the email.';
+      $('#pages').innerHTML = pages.map((src, i) => '<img src="' + src + '" data-page="' + i + '" alt="Receipt page ' + (i + 1) + '">').join('');
+      $('#receiptNote').textContent = (pages.length > 1 ? pages.length + ' pages. ' : '') + 'Tap a page to see it bigger. It\u2019s also attached to the email.';
     } catch (e) {
       $('#receiptNote').textContent = 'The receipt couldn\u2019t be shown here. It\u2019s attached to the email.';
     }
   }
 
   // ---- Picking the accounts ----------------------------------------------------
-
-  function accountOptions(org, selected) {
-    let html = '<option value="">Pick an Account</option>';
-    let group = null;
-    accounts.filter((a) => a.org === org).forEach((a) => {
-      const g = a.section === 'Designated funds' ? 'Designated funds' : a.group;
-      if (g !== group) {
-        if (group !== null) html += '</optgroup>';
-        group = g;
-        html += '<optgroup label="' + esc(g) + '">';
-      }
-      html += '<option value="' + esc(a.qb) + '"' + (a.qb === selected ? ' selected' : '') + '>' + esc((a.number ? a.number + ' ' : '') + a.name) + '</option>';
-    });
-    return html + (group !== null ? '</optgroup>' : '');
-  }
 
   function renderLines() {
     $('#change').hidden = !quick;
@@ -419,7 +456,8 @@
       '<div class="line' + (split ? ' split' : '') + '">' +
       (split || l.org !== request.org ? '<select class="org" data-org="' + i + '" aria-label="Organization for account ' + (i + 1) + '">' +
         Object.keys(ORG_NAMES).map((k) => '<option value="' + k + '"' + (l.org === k ? ' selected' : '') + '>' + k + '</option>').join('') + '</select>' : '') +
-      '<select data-i="' + i + '" class="' + (l.qb ? '' : 'empty') + '" aria-label="Account ' + (i + 1) + '">' + accountOptions(l.org, l.qb) + '</select>' +
+      '<button type="button" class="acct' + (l.qb ? '' : ' empty') + '" data-pick="' + i + '" aria-label="Account ' + (i + 1) + ': ' + esc(l.qb ? accountLabel(l) : 'Pick an Account') + '">' +
+        '<span>' + esc(l.qb ? accountLabel(l) : 'Pick an Account') + '</span></button>' +
       (split ? '<div class="break"></div><label class="money"><span>$</span><input data-amt="' + i + '" inputmode="decimal" autocomplete="off" placeholder="0.00" value="' + esc(l.amount) + '" aria-label="Amount for account ' + (i + 1) + '"></label>' +
         '<button type="button" class="rm" data-rm="' + i + '" aria-label="Remove account ' + (i + 1) + '">&times;</button>' : '') +
       '</div>').join('');
@@ -448,9 +486,6 @@
       renderLines();
       return;
     }
-    if (e.target.dataset.i === undefined) return;
-    lines[Number(e.target.dataset.i)].qb = e.target.value;
-    e.target.classList.toggle('empty', !e.target.value);
   });
   $('#lines').addEventListener('input', (e) => {
     if (e.target.dataset.amt === undefined) return;
@@ -463,6 +498,8 @@
     if (isFinite(v)) e.target.value = lines[Number(e.target.dataset.amt)].amount = v.toFixed(2);
   });
   $('#lines').addEventListener('click', (e) => {
+    const pick = e.target.closest('[data-pick]');
+    if (pick) return openPicker(Number(pick.dataset.pick));
     const b = e.target.closest('[data-rm]');
     if (!b) return;
     lines.splice(Number(b.dataset.rm), 1);
@@ -484,7 +521,95 @@
   $('#change').addEventListener('click', () => {
     fullPage();
     $('#acctCard').scrollIntoView({ behavior: 'smooth', block: 'center' });
-    $('#lines select').focus({ preventScroll: true });
+    if (!split) openPicker(0);
+  });
+
+  // The account list, with a search box: the line's organization's accounts by section and group.
+  let pickFor = 0;
+  function openPicker(i) {
+    pickFor = i;
+    $('#pickerSearch').value = '';
+    $('#pickerTitle').textContent = lines[i].org === request.org ? 'Pick an Account' : 'Pick a ' + lines[i].org + ' Account';
+    renderPicker('');
+    $('#picker').hidden = false;
+    document.documentElement.style.overflow = 'hidden';
+    // On phones, a keyboard right away hides most of the list.
+    if (window.matchMedia('(pointer: fine)').matches) $('#pickerSearch').focus();
+    const on = $('#pickerList [aria-selected="true"]');
+    if (on) on.scrollIntoView({ block: 'center' });
+  }
+  function closePicker() {
+    $('#picker').hidden = true;
+    document.documentElement.style.overflow = '';
+  }
+  function renderPicker(query) {
+    const words = query.toLowerCase().split(/\s+/).filter(Boolean);
+    const line = lines[pickFor];
+    const hits = accounts.filter((a) => {
+      if (a.org !== line.org) return false;
+      const hay = (a.number + ' ' + a.name + ' ' + a.group + ' ' + a.section).toLowerCase();
+      return words.every((w) => hay.indexOf(w) !== -1);
+    });
+    let html = '';
+    let section = '';
+    let group = '';
+    hits.forEach((a) => {
+      if (a.section !== section) {
+        section = a.section;
+        group = '';
+        html += '<div class="p-section">' + esc(section) + '</div>';
+      }
+      if (a.group !== group) {
+        group = a.group;
+        html += '<div class="p-group">' + esc(group) + '</div>';
+      }
+      html += '<button type="button" class="p-item" data-qb="' + esc(a.qb) + '" aria-selected="' + (line.qb === a.qb) + '">' +
+        '<span class="num">' + esc(a.number) + '</span><span>' + esc(a.name) + '</span></button>';
+    });
+    if (!hits.length) html = '<p class="p-none">' + (words.length ? 'No account matches \u201c' + esc(query) + '\u201d.' : 'No accounts.') + '</p>';
+    $('#pickerList').innerHTML = html;
+  }
+  $('#pickerSearch').addEventListener('input', () => renderPicker($('#pickerSearch').value));
+  $('#pickerClose').addEventListener('click', closePicker);
+  $('#pickerList').addEventListener('click', (e) => {
+    const b = e.target.closest('[data-qb]');
+    if (!b) return;
+    lines[pickFor].qb = b.dataset.qb;
+    closePicker();
+    renderLines();
+  });
+
+  // Tapping a receipt page shows it full screen; tapping again zooms in where you tapped.
+  $('#pages').addEventListener('click', (e) => {
+    const img = e.target.closest('img');
+    if (!img) return;
+    $('#zoomImg').src = img.src;
+    $('#zoomImg').alt = img.alt;
+    $('#zoom').classList.remove('big');
+    $('#zoomHint').textContent = 'Tap to zoom in';
+    $('#zoom').hidden = $('#zoomBar').hidden = false;
+    $('#zoom').scrollTo(0, 0);
+    document.documentElement.style.overflow = 'hidden';
+  });
+  $('#zoomImg').addEventListener('click', (e) => {
+    const box = $('#zoom');
+    const r = $('#zoomImg').getBoundingClientRect();
+    const fx = (e.clientX - r.left) / r.width;
+    const fy = (e.clientY - r.top) / r.height;
+    const big = box.classList.toggle('big');
+    $('#zoomHint').textContent = big ? 'Tap to zoom out' : 'Tap to zoom in';
+    const nr = $('#zoomImg').getBoundingClientRect();
+    box.scrollTo(big ? fx * nr.width - box.clientWidth / 2 : 0, big ? fy * nr.height - box.clientHeight / 2 : 0);
+  });
+  function closeZoom() {
+    $('#zoom').hidden = $('#zoomBar').hidden = true;
+    document.documentElement.style.overflow = '';
+  }
+  $('#zoomClose').addEventListener('click', closeZoom);
+  document.addEventListener('keydown', (e) => {
+    if (e.key !== 'Escape') return;
+    if (!$('#picker').hidden) closePicker();
+    if (!$('#zoom').hidden) closeZoom();
   });
   $('#more').addEventListener('click', fullPage);
   $('#addLine').addEventListener('click', () => {
@@ -505,7 +630,8 @@
     return [out];
   }
 
-  async function decide(deny) {
+  /** version: from Yes, Approve, which approves the request only as the email showed it. */
+  async function decide(deny, version) {
     const notes = $('#notes').value.trim();
     let chosen = null;
     if (deny) {
@@ -528,7 +654,7 @@
     const r = request;
     const acctText = deny ? '' : chosen.map((l) => esc(accountLabel(l)) + (chosen.length > 1 ? ' ' + dollars(l.amount) : '')).join('<br>');
     // On the short page, Yes, Approve in the email and Approve here are enough.
-    const ok = !deny && quick ? true : await dialog(deny ? {
+    const ok = !deny && (quick || version) ? true : await dialog(deny ? {
       title: 'Deny ' + r.id + '?',
       body: '<span class="big">' + dollars(r.amount) + '</span>' + esc(txt(r.payTo)) + '<br><br>The business office gets your note.',
       ok: 'Deny', cancel: 'Go Back', danger: true,
@@ -542,12 +668,22 @@
     dialog({ title: deny ? 'Denying\u2026' : 'Approving\u2026', busy: true });
     let res;
     try {
-      res = await api({ action: 'approveDecide', decision: deny ? 'deny' : 'approve', lines: chosen || [], notes: notes });
+      res = await api({ action: 'approveDecide', decision: deny ? 'deny' : 'approve', lines: chosen || [], notes: notes, version: version || 0 });
     } catch (e) {
       $('#dialog').hidden = true;
       return toast(e.message);
     }
     request = res.request;
+    if (res.status === 'changed') {
+      // The office changed it after the email went out: show it as it is now.
+      $('#dialog').hidden = true;
+      useRequest();
+      quick = false;
+      render();
+      renderLines();
+      showReceipt();
+      return dialog({ title: 'This Request Changed', body: 'The business office changed it after your email was sent, so it wasn\u2019t approved. Check it, then tap Approve.', ok: 'OK' });
+    }
     quick = false;
     render();
     showReceipt();
@@ -567,13 +703,13 @@
   // ---- Start -------------------------------------------------------------------
 
   async function start() {
-    const m = /^#(PR-\d+)\/([\w-]+)(\/(deny|quick))?$/.exec(location.hash);
+    const m = /^#(PR-\d+)\/([\w-]+)(\/(deny|quick|yes\/(\d+)))?$/.exec(location.hash);
     if (!m) {
       $('#loadingText').textContent = 'This link isn\u2019t complete. Open it again from the email.';
       return;
     }
     link = { id: m[1], key: m[2] };
-    // Drop /deny or /quick, so a reload shows the full page.
+    // Drop /deny, /quick or /yes, so a reload shows the full page and can't approve again.
     if (m[3]) history.replaceState(null, '', '#' + link.id + '/' + link.key);
     let res;
     try {
@@ -584,13 +720,9 @@
     }
     request = res.request;
     accounts = res.accounts;
-    split = request.lines.length > 1;
-    lines = (request.lines.length ? request.lines : [{ qb: '', amount: '' }]).map((l) => ({
-      org: l.org || request.org,
-      qb: l.qb === NOT_SURE ? '' : l.qb,
-      amount: split ? Number(l.amount).toFixed(2) : '',
-    }));
-    quick = m[4] === 'quick' && request.status === 'New' && lines.every((l) => l.qb);
+    useRequest();
+    const yes = m[5] ? Number(m[5]) : 0;
+    quick = (m[4] === 'quick' || yes > 0) && request.status === 'New' && lines.every((l) => l.qb);
     $('#loading').hidden = true;
     $('#view').hidden = false;
     render();
@@ -601,6 +733,17 @@
       $('#notes').focus({ preventScroll: true });
     }
     if (!quick) showReceipt();
+    if (yes && quick) decide(false, yes);
+  }
+
+  /** The lines to pick from, as the request has them. */
+  function useRequest() {
+    split = request.lines.length > 1;
+    lines = (request.lines.length ? request.lines : [{ qb: '', amount: '' }]).map((l) => ({
+      org: l.org || request.org,
+      qb: l.qb === NOT_SURE ? '' : l.qb,
+      amount: split ? Number(l.amount).toFixed(2) : '',
+    }));
   }
   start();
 })();
