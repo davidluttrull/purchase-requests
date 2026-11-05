@@ -356,11 +356,13 @@
       $('#dialogBody').innerHTML = opts.body || '';
       $('#dialogBody').hidden = !opts.body;
       $('#dialogFields').innerHTML = (opts.fields || []).map((f) =>
-        '<label class="f">' + esc(f.label) + '<input id="df-' + f.id + '" type="' + (f.type || 'text') + '" value="' + esc(f.value || '') + '"></label>').join('');
+        '<label class="f">' + esc(f.label) + (f.type === 'textarea'
+          ? '<textarea id="df-' + f.id + '" rows="4" maxlength="2000">' + esc(f.value || '') + '</textarea>'
+          : '<input id="df-' + f.id + '" type="' + (f.type || 'text') + '" value="' + esc(f.value || '') + '">') + '</label>').join('');
       $('#dialogOk').textContent = opts.ok || 'OK';
       $('#dialogCancel').textContent = opts.cancel || 'Cancel';
       $('#dialog').hidden = false;
-      const first = $('#dialogFields input');
+      const first = $('#dialogFields input, #dialogFields textarea');
       (first || $('#dialogOk')).focus();
       const finish = (ok) => {
         $('#dialog').hidden = true;
@@ -516,7 +518,8 @@
     const r = current;
     const files = String(r.files || '').split('\n').filter(Boolean);
     const actions = [];
-    if (r.status === 'New') actions.push('<button type="button" class="btn primary" data-act="approve">Approve</button>');
+    if (r.status === 'New') actions.push('<button type="button" class="btn primary" data-act="approve">Approve</button>',
+      '<button type="button" class="btn" data-act="deny">Deny</button>');
     if (r.status === 'New' || r.status === 'Approved') actions.push('<button type="button" class="btn' + (r.status === 'Approved' ? ' primary' : '') + '" data-act="paid">Mark Paid</button>');
     if (r.status !== 'New') actions.push('<button type="button" class="btn" data-act="reopen">Back to New</button>');
     if (r.status !== 'Void') actions.push('<button type="button" class="btn danger" data-act="void">Void</button>');
@@ -757,6 +760,7 @@
   function applyEdits(r, body) {
     const f = body.form;
     const out = Object.assign(JSON.parse(JSON.stringify(r)), f);
+    out.approverNotes = r.approverNotes;
     if (f.type !== 'Credit card') { out.cardholder = ''; out.cardOrg = ''; }
     out.lines = body.lines.map((l) => {
       const a = DATA.accounts.find((x) => x.org === (l.org || f.org) && x.qb === l.qb);
@@ -768,7 +772,7 @@
     if (now && (!out.approvedBy || now !== (decision(r.status) || now))) {
       out.approvedBy = store((s) => s.getItem(KEY.name)) || '';
       out.approvedOn = today();
-      out.approverNotes = '';
+      out.approverNotes = f.approverNotes || '';
     }
     if (f.status === 'New') { out.approvedBy = ''; out.approvedOn = ''; out.approverNotes = ''; }
     out.changedBy = store((s) => s.getItem(KEY.name)) || '';
@@ -797,6 +801,29 @@
   function replaceRequest(r) {
     const i = DATA.requests.findIndex((x) => x.id === r.id);
     if (i === -1) DATA.requests.unshift(r); else DATA.requests[i] = r;
+  }
+
+  /** With an approver, approving or denying here emails the office, the same as the approval page. */
+  async function approve() {
+    const v = await dialog({
+      title: 'Approve ' + current.id + '?',
+      body: DATA.approver ? 'The business office gets an email with the request as a PDF to print.' : '',
+      fields: [{ id: 'note', label: 'Note (optional)', type: 'textarea' }],
+      ok: 'Approve',
+    });
+    if (v) save({ status: 'Approved', approverNotes: v.note }, current.id + ' approved.');
+  }
+
+  async function deny() {
+    const v = await dialog({
+      title: 'Deny ' + current.id + '?',
+      body: DATA.approver ? 'The business office gets an email with your reason.' : '',
+      fields: [{ id: 'note', label: 'Why is it denied?', type: 'textarea' }],
+      ok: 'Deny It',
+    });
+    if (!v) return;
+    if (!v.note) return toast('Add a note saying why it\u2019s denied.');
+    save({ status: 'Denied', approverNotes: v.note }, current.id + ' denied.');
   }
 
   async function markPaid() {
@@ -1125,9 +1152,13 @@
       if (dirty() && !confirm('Leave without saving your changes?')) return;
       closeRequest();
     }
-    if (act === 'save') save();
+    if (act === 'save') {
+      // Denying from the Status box still asks for the reason.
+      if ($('#d-status').value === 'Denied' && current.status !== 'Denied') deny(); else save();
+    }
     if (act === 'undo') openRequest(current.id);
-    if (act === 'approve') save({ status: 'Approved' }, current.id + ' approved.');
+    if (act === 'approve') approve();
+    if (act === 'deny') deny();
     if (act === 'paid') markPaid();
     if (act === 'reopen') save({ status: 'New' }, current.id + ' is back to New.');
     if (act === 'void') {
